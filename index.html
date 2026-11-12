@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Скрипт оператора П5 и П6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Скрипт оператора · бюджет<small>«Жемчужина» · Поликлиники №5 и №6, Костанай</small></div>
+  <span id="lineChip" class="chip">Линия не выбрана</span>
+  <span id="timer" class="timer" title="Длительность звонка">00:00</span>
+  <button id="backBtn" class="btn" type="button">← Назад</button>
+  <button id="newBtn" class="btn primary" type="button">Новый звонок</button>
+</header>
+<div class="wrap">
+  <main>
+    <nav id="trail" class="trail" aria-label="Пройденные шаги"></nav>
+    <section id="card" class="card" aria-live="polite"></section>
+  </main>
+  <aside>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-doc" aria-selected="true">Врачи</button>
+      <button type="button" role="tab" id="tab-odd" aria-selected="false">Нестандартное</button>
+      <button type="button" role="tab" id="tab-memo" aria-selected="false">Памятка</button>
+    </div>
+    <div id="pane" class="pane"></div>
+  </aside>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
