@@ -31,7 +31,12 @@
   </aside>
 </div>
 
-<script src="data.js"></script>
-<script src="app.js"></script>
+<script>
+/* data.js грузим с меткой времени, чтобы браузер и GitHub не показывали старую версию скрипта после правок */
+(function(){var v=Date.now();var d=document.createElement("script");d.src="data.js?v="+v;
+d.onload=function(){var a=document.createElement("script");a.src="app.js?v="+v;document.body.appendChild(a);};
+d.onerror=function(){document.getElementById("card").innerHTML="<p>Не удалось загрузить скрипт. Обновите страницу.</p>";};
+document.body.appendChild(d);})();
+</script>
 </body>
 </html>
