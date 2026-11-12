@@ -1,7 +1,7 @@
 /* ============================================================
    ЛОГИКА
    ============================================================ */
-const state = {cur:"start", line:null, hist:[], t0:Date.now(), tab:"doc"};
+const state = {cur:"start", line:null, hist:[], tab:"doc"};
 const $ = s => document.querySelector(s);
 const esc = s => s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt = s => esc(s).replace(/\[([^\]]+)\]/g,'<span class="ph">[$1]</span>');
@@ -65,7 +65,7 @@ function choose(o){
 }
 function back(){ if(!state.hist.length) return; const h=state.hist.pop(); state.cur=h.cur; state.line=h.line; render(); }
 function jumpBack(i){ const h=state.hist[i]; state.hist=state.hist.slice(0,i); state.cur=h.cur; state.line=h.line; render(); }
-function newCall(){ state.cur="start"; state.line=null; state.hist=[]; state.t0=Date.now(); render(); window.scrollTo({top:0}); }
+function newCall(){ state.cur="start"; state.line=null; state.hist=[]; render(); window.scrollTo({top:0}); }
 
 function renderPane(){
   ["doc","odd","memo"].forEach(t=>$("#tab-"+t).setAttribute("aria-selected", String(state.tab===t)));
@@ -103,6 +103,5 @@ document.addEventListener("keydown",e=>{
     if(opts[i]){ e.preventDefault(); choose(opts[i]); }
   } else if(e.key==="Backspace"){ e.preventDefault(); back(); }
 });
-setInterval(()=>{const s=Math.floor((Date.now()-state.t0)/1000);$("#timer").textContent=String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");},1000);
 $("#card").tabIndex=-1;
 render();

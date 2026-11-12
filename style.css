@@ -37,7 +37,6 @@ button{font:inherit;color:inherit}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font:600 13px var(--display);border:1px solid var(--line);color:var(--muted)}
 .chip.p5{background:var(--p5-soft);color:var(--p5);border-color:var(--p5)}
 .chip.p6{background:var(--p6-soft);color:var(--p6);border-color:var(--p6)}
-.timer{font:600 13px var(--display);color:var(--muted);font-variant-numeric:tabular-nums;min-width:52px}
 .btn{border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:500}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
