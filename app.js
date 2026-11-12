@@ -67,13 +67,24 @@ function back(){ if(!state.hist.length) return; const h=state.hist.pop(); state.
 function jumpBack(i){ const h=state.hist[i]; state.hist=state.hist.slice(0,i); state.cur=h.cur; state.line=h.line; render(); }
 function newCall(){ state.cur="start"; state.line=null; state.hist=[]; render(); window.scrollTo({top:0}); }
 
+function blocksHtml(list){
+  return (list||[]).map(b=>{
+    if(b.h!=null) return `<h4>${esc(b.h)}</h4>`;
+    if(b.p!=null) return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");
+    if(b.table){
+      const head=b.table.head||[]; const u=head.findIndex(x=>/участ/i.test(x));
+      return `<table>${head.length?`<tr>${head.map(x=>`<th>${esc(x)}</th>`).join("")}</tr>`:""}${(b.table.rows||[]).map(r=>`<tr>${r.map((c,i)=>`<td${i===u?' class="u"':""}>${fmt(c||"")}</td>`).join("")}</tr>`).join("")}</table>`;
+    }
+    return "";
+  }).join("");
+}
 function renderPane(){
   ["doc","odd","memo"].forEach(t=>$("#tab-"+t).setAttribute("aria-selected", String(state.tab===t)));
   const p=$("#pane");
   if(state.tab==="doc"){
-    if(state.line) p.innerHTML = DOCTORS[state.line];
+    if(state.line) p.innerHTML = blocksHtml(DOCTORS[state.line]);
     else p.innerHTML = `<p class="empty">Выберите П5 или П6 в скрипте — здесь появятся врачи этой поликлиники.</p><p><button class="btn" type="button" data-l="p5">Показать П5</button> <button class="btn" type="button" data-l="p6">Показать П6</button></p>`;
-    p.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{p.innerHTML=DOCTORS[b.dataset.l];});
+    p.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{p.innerHTML=blocksHtml(DOCTORS[b.dataset.l]);});
   } else if(state.tab==="odd"){
     const q = (p.querySelector(".search")||{}).value || "";
     p.innerHTML = `<input class="search" id="oddSearch" type="search" placeholder="Поиск: БЛ, снимок, отпуск, полиция…" value="${esc(q)}"><div id="oddList"></div>`;
@@ -88,7 +99,7 @@ function renderPane(){
     };
     inp.oninput=draw; draw();
   } else {
-    p.innerHTML = MEMO;
+    p.innerHTML = blocksHtml(MEMO);
   }
 }
 ["doc","odd","memo"].forEach(t=>$("#tab-"+t).onclick=()=>{state.tab=t;renderPane();});

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Редактор скрипта П5 и П6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* Раскладка редактора: вкладки разделов; для шагов — список слева, форма по центру, предпросмотр справа. */
+.top{gap:8px 10px}
+.state{font:600 12.5px var(--display);padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.state.dirty{color:var(--note-line);border-color:var(--note-line);background:var(--note-bg)}
+.state.ok{color:var(--say-line);border-color:var(--say-line);background:var(--say-bg)}
+.state.err{color:var(--danger);border-color:var(--danger);background:var(--danger-soft)}
+#msg{width:200px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.atabs{display:flex;gap:4px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
+.atabs button{border:0;background:none;padding:11px 14px;cursor:pointer;font:600 14px var(--display);color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.atabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.banner{margin:14px 20px 0;padding:10px 14px;border-radius:10px;background:var(--note-bg);border:1px solid var(--note-line);display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.banner.err{background:var(--danger-soft);border-color:var(--danger)}
+.banner.ok{background:var(--say-bg);border-color:var(--say-line)}
+.banner span{margin-right:auto}
+.ed{display:grid;grid-template-columns:290px minmax(0,1fr) minmax(0,440px);gap:16px;padding:16px 20px;align-items:start}
+@media (max-width:1250px){.ed{grid-template-columns:260px minmax(0,1fr)}.ed .pv{grid-column:2}}
+@media (max-width:760px){.ed{grid-template-columns:1fr}.ed .pv{grid-column:auto}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.list{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow:auto;padding:12px}
+@media (max-width:760px){.list{position:static;max-height:50vh}}
+.list .search{margin-bottom:8px}
+.list .grp{margin:12px 0 4px}
+.si{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:13.5px;line-height:1.3}
+.si:hover{background:var(--bg)}
+.si[aria-current="true"]{background:color-mix(in srgb,var(--accent) 14%,var(--surface));font-weight:600}
+.si .warn{color:var(--danger);font-weight:700}
+h2{font:700 19px/1.3 var(--display);margin:0 0 12px}
+.f{display:grid;gap:4px;margin:0 0 12px}
+.f label,.lbl{font:600 12.5px var(--display);color:var(--muted)}
+.f input,.f textarea,.f select,.inp{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{resize:vertical;min-height:44px;line-height:1.45}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:1000px){.row3{grid-template-columns:1fr}}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:10px 12px 2px;margin:0 0 14px}
+legend{font:600 13px var(--display);padding:0 6px}
+fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-left:4px solid var(--note-line)}
+.help{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+.ob{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) 120px auto;gap:6px;align-items:start;padding:8px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;background:var(--bg)}
+.ob .more{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1.3fr) 150px;gap:6px}
+@media (max-width:1000px){.ob{grid-template-columns:1fr}.ob .more{grid-template-columns:1fr}}
+.ob .inp{background:var(--surface)}
+.ob .inp.bad{border-color:var(--danger)}
+.ib{display:flex;gap:4px}
+.ib button,.mini{border:1px solid var(--line);background:var(--surface);border-radius:7px;min-width:32px;height:34px;cursor:pointer;font-size:14px}
+.ib button:hover,.mini:hover{border-color:var(--accent)}
+.ib button.del:hover{border-color:var(--danger);color:var(--danger)}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.btn.danger{color:var(--danger)} .btn.danger:hover{border-color:var(--danger)}
+.links{font-size:13px;color:var(--muted)}
+.links button{border:0;background:none;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;font-size:13px}
+.pv{position:sticky;top:70px}
+@media (max-width:760px){.pv{position:static}}
+.pvbar{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.pvbar .lbl{margin-right:auto}
+.seg button{border:1px solid var(--line);background:var(--surface);padding:5px 10px;cursor:pointer;font:600 12.5px var(--display)}
+.seg button:first-child{border-radius:7px 0 0 7px}.seg button:last-child{border-radius:0 7px 7px 0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pv .card{padding:16px 18px}
+.pv h1{font-size:19px;margin-bottom:12px}
+.pv .say p{font-size:15px}
+.pv .opts{grid-template-columns:1fr}
+.pv .opt.p5,.pv .opt.p6{min-height:52px;font-size:16px}
+.wide{padding:16px 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:16px;align-items:start}
+@media (max-width:1000px){.wide{grid-template-columns:1fr}}
+.blk{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;background:var(--bg)}
+.blk-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.blk-h .lbl{margin-right:auto}
+.tg{display:grid;gap:4px;overflow-x:auto}
+.tr{display:grid;gap:4px;align-items:start}
+.tr .inp{padding:6px 8px;font-size:13.5px;background:var(--surface)}
+.tr.head .inp{font-weight:600}
+.addrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.grpbox{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px;background:var(--surface)}
+.oddi{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto;gap:6px;margin-bottom:6px;align-items:start}
+@media (max-width:800px){.oddi{grid-template-columns:1fr}}
+.modal{position:fixed;inset:0;background:rgba(10,16,22,.45);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:20;overflow:auto}
+.modal.open{display:flex}
+.modal .panel{max-width:640px;width:100%;padding:20px 22px}
+.modal ol{padding-left:20px;margin:6px 0 12px}
+.modal li{margin-bottom:4px;font-size:14px}
+.chk li button{border:0;background:none;color:var(--accent);cursor:pointer;text-decoration:underline;padding:0;font:inherit}
+.chk .hard{color:var(--danger)}
+.prevpane{max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:70px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Редактор скрипта<small>П5 и П6 · бюджет</small></div>
+  <span id="state" class="state">Загрузка…</span>
+  <input id="msg" type="text" placeholder="Что поменяли (необязательно)" aria-label="Что поменяли">
+  <button id="bCheck" class="btn" type="button">Проверить</button>
+  <button id="bDl" class="btn" type="button">Скачать data.js</button>
+  <button id="bSet" class="btn" type="button">Доступ GitHub</button>
+  <button id="bSave" class="btn primary" type="button">Сохранить на сайт</button>
+</header>
+<nav class="atabs" role="tablist">
+  <button type="button" data-v="steps">Шаги скрипта</button>
+  <button type="button" data-v="p5">Врачи П5</button>
+  <button type="button" data-v="p6">Врачи П6</button>
+  <button type="button" data-v="odd">Нестандартное</button>
+  <button type="button" data-v="memo">Памятка</button>
+  <a class="btn" href="./" target="_blank" rel="noopener" style="margin:6px 0 6px auto;text-decoration:none;align-self:center;color:var(--accent)">Открыть скрипт</a>
+</nav>
+<div id="banners"></div>
+<div id="view"></div>
+
+<div id="modal" class="modal" role="dialog" aria-modal="true"><div class="panel" id="modalBody"></div></div>
+
+<script src="serialize.js"></script>
+<script>
+/* ============ состояние ============ */
+let D=null, base="", dirty=false, cur="start", view="steps", pline="p5", listQ="";
+const LS_GH="medic-admin-gh", LS_DRAFT="medic-admin-draft";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=s=>esc(s).replace(/\[([^\]]+)\]/g,'<span class="ph">[$1]</span>');
+const SPECIAL={"NEW":"↺ Новый звонок (в начало)","PANEL:odd":"Открыть вкладку «Нестандартное»"};
+
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){return null}}
+function cfg(){let g={};try{g=JSON.parse(ls(LS_GH)||"{}")}catch(e){}return{owner:g.owner||"astr-debug",repo:g.repo||"medic",branch:g.branch||"main",token:g.token||""};}
+function b64dec(s){const bin=atob(s.replace(/\s/g,""));const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new TextDecoder().decode(u);}
+function b64enc(s){const u=new TextEncoder().encode(s);let bin="";for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(bin);}
+function parse(text){return new Function(text+"\n;return {S:S,DOCTORS:DOCTORS,ODD:ODD,MEMO:MEMO};")();}
+function setState(t,cls){const e=$("#state");e.textContent=t;e.className="state"+(cls?" "+cls:"");}
+function banner(html,cls,actions){const b=document.createElement("div");b.className="banner"+(cls?" "+cls:"");b.innerHTML=`<span>${html}</span>`;(actions||[]).forEach(([l,f,primary])=>{const x=document.createElement("button");x.type="button";x.className="btn"+(primary?" primary":"");x.textContent=l;x.onclick=()=>{f();b.remove();};b.appendChild(x);});const c=document.createElement("button");c.type="button";c.className="btn";c.textContent="Скрыть";c.onclick=()=>b.remove();b.appendChild(c);$("#banners").prepend(b);return b;}
+
+/* ============ загрузка ============ */
+async function load(){
+  const c=cfg(); let text=null;
+  if(c.token){
+    try{
+      const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js?ref=${encodeURIComponent(c.branch)}`,{headers:{Authorization:"Bearer "+c.token,Accept:"application/vnd.github+json"},cache:"no-store"});
+      if(!r.ok) throw new Error(r.status);
+      text=b64dec((await r.json()).content);
+    }catch(e){banner("Не удалось загрузить данные через GitHub ("+esc(e.message)+"). Проверьте ключ доступа. Пока открыта версия с сайта.","err");}
+  }
+  if(text===null){const r=await fetch("data.js?v="+Date.now(),{cache:"no-store"});text=await r.text();}
+  D=parse(text); base=text; dirty=false;
+  D.DOCTORS=D.DOCTORS||{p5:[],p6:[]}; D.DOCTORS.p5=D.DOCTORS.p5||[]; D.DOCTORS.p6=D.DOCTORS.p6||[]; D.ODD=D.ODD||[]; D.MEMO=D.MEMO||[];
+  setState("Изменений нет");
+  const dr=ls(LS_DRAFT);
+  if(dr){try{const d=JSON.parse(dr); if(serializeData(d.data)!==text){
+    banner(`Есть несохранённый черновик от ${new Date(d.t).toLocaleString("ru-RU")}.`,"",[["Восстановить черновик",()=>{D=d.data;markDirty();go(view);},true],["Удалить черновик",()=>ls(LS_DRAFT,null)]]);
+  } else ls(LS_DRAFT,null);}catch(e){ls(LS_DRAFT,null);}}
+  go(view);
+}
+function markDirty(){dirty=true;setState("Есть несохранённые изменения","dirty");clearTimeout(markDirty.t);markDirty.t=setTimeout(()=>ls(LS_DRAFT,JSON.stringify({t:Date.now(),data:D})),400);}
+window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue="";}});
+
+/* ============ вкладки ============ */
+function go(v){view=v;document.querySelectorAll(".atabs [data-v]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));
+  if(v==="steps")renderSteps(); else if(v==="p5"||v==="p6")renderBlocks(D.DOCTORS[v],"Вкладка «Врачи» — "+(v==="p5"?"П5":"П6")); else if(v==="memo")renderBlocks(D.MEMO,"Вкладка «Памятка»"); else renderOdd();}
+document.querySelectorAll(".atabs [data-v]").forEach(b=>b.onclick=()=>go(b.dataset.v));
+
+/* ============ шаги ============ */
+const parts=v=>{if(!v)return{a:"",p5:"",p6:""};if(typeof v==="string")return{a:v,p5:"",p6:""};return{a:v.a||"",p5:v.p5||"",p6:v.p6||""};};
+const pack=o=>{const a=o.a.trim(),p5=o.p5.trim(),p6=o.p6.trim();if(!a&&!p5&&!p6)return undefined;if(!p5&&!p6)return a;const r={};if(a)r.a=a;if(p5)r.p5=p5;if(p6)r.p6=p6;return r;};
+function incoming(id){const r=[];for(const[k,v]of Object.entries(D.S))(v.opts||[]).forEach(o=>{if(o[1]===id)r.push(k);});return [...new Set(r)];}
+function dead(st){return (st.opts||[]).some(o=>!(o[1] in SPECIAL)&&!D.S[o[1]]);}
+function stepOptions(sel){
+  const groups={};for(const[k,v]of Object.entries(D.S))(groups[v.kick||"Без раздела"]=groups[v.kick||"Без раздела"]||[]).push([k,v]);
+  let h=`<option value="" ${!sel?"selected":""}>— выберите шаг —</option><optgroup label="Особые">`+Object.entries(SPECIAL).map(([k,l])=>`<option value="${k}" ${sel===k?"selected":""}>${esc(l)}</option>`).join("")+`</optgroup>`;
+  for(const[g,list]of Object.entries(groups))h+=`<optgroup label="${esc(g)}">`+list.map(([k,v])=>`<option value="${esc(k)}" ${sel===k?"selected":""}>${esc(v.t||k)}</option>`).join("")+`</optgroup>`;
+  if(sel&&!(sel in SPECIAL)&&!D.S[sel])h+=`<option value="${esc(sel)}" selected>⚠ шаг «${esc(sel)}» не найден</option>`;
+  return h;
+}
+function newId(){let i;do{i="step_"+Math.random().toString(36).slice(2,8);}while(D.S[i]);return i;}
+
+function renderSteps(){
+  if(!D.S[cur])cur="start";
+  $("#view").innerHTML=`<div class="ed"><div class="panel list" id="slist"></div><div class="panel" id="sform"></div><div class="pv" id="spv"></div></div>`;
+  renderList();renderForm();renderPreview();
+}
+function renderList(){
+  const q=listQ.trim().toLowerCase();const groups={};
+  for(const[k,v]of Object.entries(D.S)){const hay=(v.t+" "+k+" "+JSON.stringify(v.say||"")+" "+JSON.stringify(v.note||"")).toLowerCase();if(q&&!hay.includes(q))continue;(groups[v.kick||"Без раздела"]=groups[v.kick||"Без раздела"]||[]).push([k,v]);}
+  let h=`<input class="search" id="lq" type="search" placeholder="Поиск по шагам и фразам" value="${esc(listQ)}"><button type="button" class="btn primary" id="addStep" style="width:100%">+ Новый шаг</button>`;
+  for(const[g,list]of Object.entries(groups))h+=`<p class="grp">${esc(g)}</p>`+list.map(([k,v])=>`<button type="button" class="si" data-id="${esc(k)}" aria-current="${k===cur}">${dead(v)?'<span class="warn" title="Кнопка ведёт на несуществующий шаг">! </span>':""}${esc(v.t||k)}</button>`).join("");
+  if(!Object.keys(groups).length)h+=`<p class="empty">Ничего не нашлось.</p>`;
+  const el=$("#slist");el.innerHTML=h;
+  const lq=el.querySelector("#lq");lq.oninput=()=>{listQ=lq.value;renderList();const n=$("#lq");n.focus();n.setSelectionRange(n.value.length,n.value.length);};
+  el.querySelector("#addStep").onclick=()=>{const id=newId();D.S[id]={t:"Новый шаг",kick:(D.S[cur]&&D.S[cur].kick)||"",say:"",opts:[["Дальше","close"]]};cur=id;markDirty();renderSteps();setTimeout(()=>{const t=$("#f_t");t.focus();t.select();},0);};
+  el.querySelectorAll(".si").forEach(b=>b.onclick=()=>{cur=b.dataset.id;renderSteps();window.scrollTo({top:0});});
+}
+function ta(id,label,val,rows){return `<div class="f"><label for="${id}">${label}</label><textarea id="${id}" rows="${rows||2}">${esc(val)}</textarea></div>`;}
+function renderForm(){
+  const st=D.S[cur];const say=parts(st.say),note=parts(st.note);const inc=incoming(cur);
+  const kicks=[...new Set(Object.values(D.S).map(v=>v.kick).filter(Boolean))];
+  let h=`<h2>${esc(st.t||"Шаг")}</h2>
+  <div class="row3" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)"><div class="f"><label for="f_t">Название шага</label><input id="f_t" value="${esc(st.t)}"></div>
+  <div class="f"><label for="f_k">Раздел</label><input id="f_k" list="kicks" value="${esc(st.kick||"")}"><datalist id="kicks">${kicks.map(k=>`<option value="${esc(k)}">`).join("")}</datalist></div></div>
+  <div class="f" style="grid-template-columns:auto 1fr;align-items:center;gap:8px"><input type="checkbox" id="f_d" ${st.danger?"checked":""} style="width:auto"><label for="f_d" style="font-weight:500;color:var(--ink)">Красная карточка (экстренная ситуация, оскорбления)</label></div>
+  <fieldset class="fs-say"><legend>Скажите пациенту — оператор читает дословно</legend>
+  <p class="help">Заполните «Для всех», если фраза одинаковая. Если для П5 и П6 разная — заполните их поля, оператор увидит только своё. Текст в [квадратных скобках] оператор подставляет сам. Новая строка — новый абзац.</p>
+  ${ta("s_a","Для всех",say.a,3)}<div class="row3" style="grid-template-columns:1fr 1fr">${ta("s_p5","Только П5",say.p5,3)}${ta("s_p6","Только П6",say.p6,3)}</div></fieldset>
+  <fieldset class="fs-note"><legend>Подсказка оператору</legend>
+  ${ta("n_a","Для всех",note.a,2)}<div class="row3" style="grid-template-columns:1fr 1fr">${ta("n_p5","Только П5",note.p5,2)}${ta("n_p6","Только П6",note.p6,2)}</div></fieldset>
+  <fieldset><legend>Кнопки — что дальше</legend>
+  <p class="help">Каждая кнопка ведёт на шаг. Чтобы добавить новую ветку, нажмите «+ Кнопка на новый шаг» — шаг создастся и откроется.</p>
+  <div id="optsBox"></div>
+  <div class="addrow"><button type="button" class="btn" id="addOpt">+ Кнопка</button><button type="button" class="btn" id="addOptNew">+ Кнопка на новый шаг</button></div></fieldset>
+  <p class="links">${cur==="start"?"Это первый шаг звонка.":inc.length?"Сюда ведут кнопки из шагов: "+inc.map(k=>`<button type="button" data-go="${esc(k)}">${esc(D.S[k].t||k)}</button>`).join(", "):"<b style='color:var(--danger)'>Сюда не ведёт ни одна кнопка</b> — оператор не сможет попасть на этот шаг."}</p>
+  <div class="acts"><button type="button" class="btn" id="dup">Дублировать шаг</button>${cur!=="start"?`<button type="button" class="btn danger" id="delStep">Удалить шаг</button>`:""}<span class="links" style="align-self:center">Код шага: ${esc(cur)}</span></div>`;
+  const f=$("#sform");f.innerHTML=h;
+  const upd=()=>{st.t=$("#f_t").value;st.kick=$("#f_k").value;if($("#f_d").checked)st.danger=1;else delete st.danger;
+    const s=pack({a:$("#s_a").value,p5:$("#s_p5").value,p6:$("#s_p6").value});if(s===undefined)delete st.say;else st.say=s;
+    const n=pack({a:$("#n_a").value,p5:$("#n_p5").value,p6:$("#n_p6").value});if(n===undefined)delete st.note;else st.note=n;
+    f.querySelector("h2").textContent=st.t||"Шаг";markDirty();renderPreview();const li=document.querySelector(`.si[data-id="${CSS.escape(cur)}"]`);if(li)li.textContent=st.t||cur;};
+  ["f_t","f_k","s_a","s_p5","s_p6","n_a","n_p5","n_p6"].forEach(i=>$("#"+i).addEventListener("input",upd));
+  $("#f_d").addEventListener("change",upd);
+  renderOpts();
+  $("#addOpt").onclick=()=>{(st.opts=st.opts||[]).push(["",""]);markDirty();renderOpts();renderPreview();const ins=$("#optsBox").querySelectorAll(".lab");ins[ins.length-1].focus();};
+  $("#addOptNew").onclick=()=>{const id=newId();D.S[id]={t:"Новый шаг",kick:st.kick||"",say:"",opts:[["Дальше","close"]]};(st.opts=st.opts||[]).push(["Новая кнопка",id]);cur=id;markDirty();renderSteps();setTimeout(()=>{const t=$("#f_t");t.focus();t.select();},0);};
+  f.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{cur=b.dataset.go;renderSteps();});
+  $("#dup").onclick=()=>{const id=newId();D.S[id]=JSON.parse(JSON.stringify(st));D.S[id].t=(st.t||"")+" (копия)";cur=id;markDirty();renderSteps();};
+  const del=$("#delStep");if(del)del.onclick=()=>{
+    const msg=inc.length?`На этот шаг ведут кнопки из ${inc.length} шаг(ов): ${inc.map(k=>"«"+(D.S[k].t||k)+"»").join(", ")}. Эти кнопки тоже будут удалены. Удалить шаг «${st.t}»?`:`Удалить шаг «${st.t}»?`;
+    if(!confirm(msg))return;
+    delete D.S[cur];for(const v of Object.values(D.S))if(v.opts)v.opts=v.opts.filter(o=>o[1]!==cur);
+    cur=inc[0]||"start";markDirty();renderSteps();};
+}
+function renderOpts(){
+  const st=D.S[cur];const box=$("#optsBox");const opts=st.opts||[];
+  box.innerHTML=opts.length?opts.map((o,i)=>{const x=o[2]||{};const bad=!o[1]||(!(o[1] in SPECIAL)&&!D.S[o[1]]);return `<div class="ob" data-i="${i}">
+    <input class="inp lab" aria-label="Надпись на кнопке" placeholder="Надпись на кнопке" value="${esc(o[0])}">
+    <select class="inp tgt${bad?" bad":""}" aria-label="Куда ведёт">${stepOptions(o[1])}</select>
+    <select class="inp shw" aria-label="Кому показывать"><option value="">Всем</option><option value="p5" ${x.only==="p5"?"selected":""}>Только П5</option><option value="p6" ${x.only==="p6"?"selected":""}>Только П6</option></select>
+    <div class="ib"><button type="button" class="up" title="Выше" aria-label="Выше">↑</button><button type="button" class="dn" title="Ниже" aria-label="Ниже">↓</button><button type="button" class="jmp" title="Открыть этот шаг" aria-label="Открыть шаг">→</button><button type="button" class="del" title="Удалить кнопку" aria-label="Удалить кнопку">✕</button></div>
+    <div class="more"><input class="inp sub" placeholder="Пояснение мелким шрифтом (необязательно)" aria-label="Пояснение" value="${esc(x.sub||"")}">
+    <select class="inp lin" aria-label="Выбирает линию"><option value="">Линию не меняет</option><option value="p5" ${x.line==="p5"?"selected":""}>Выбирает линию П5</option><option value="p6" ${x.line==="p6"?"selected":""}>Выбирает линию П6</option></select></div></div>`;}).join(""):`<p class="empty">Кнопок нет — оператор застрянет на этом шаге.</p>`;
+  box.querySelectorAll(".ob").forEach(row=>{
+    const i=+row.dataset.i;const o=opts[i];
+    const sync=()=>{o[0]=row.querySelector(".lab").value;o[1]=row.querySelector(".tgt").value;const x={};const sh=row.querySelector(".shw").value,li=row.querySelector(".lin").value,su=row.querySelector(".sub").value.trim();
+      if(sh)x.only=sh;if(li)x.line=li;if(su)x.sub=su;if(o[1]==="NEW")x.end=1;if(Object.keys(x).length)o[2]=x;else o.length=2;
+      row.querySelector(".tgt").classList.toggle("bad",!o[1]||(!(o[1] in SPECIAL)&&!D.S[o[1]]));markDirty();renderPreview();};
+    row.querySelectorAll("input").forEach(e=>e.addEventListener("input",sync));
+    row.querySelectorAll("select").forEach(e=>e.addEventListener("change",sync));
+    row.querySelector(".up").onclick=()=>{if(i>0){[opts[i-1],opts[i]]=[opts[i],opts[i-1]];markDirty();renderOpts();renderPreview();}};
+    row.querySelector(".dn").onclick=()=>{if(i<opts.length-1){[opts[i+1],opts[i]]=[opts[i],opts[i+1]];markDirty();renderOpts();renderPreview();}};
+    row.querySelector(".del").onclick=()=>{opts.splice(i,1);markDirty();renderOpts();renderPreview();};
+    row.querySelector(".jmp").onclick=()=>{if(D.S[o[1]]){cur=o[1];renderSteps();window.scrollTo({top:0});}};
+  });
+}
+function pick(v,line){if(!v)return[];if(typeof v==="string")return[v];const out=[];if(v.a)out.push(v.a);if(line&&v[line])out.push(v[line]);if(!line){if(v.p5)out.push("П5: "+v.p5);if(v.p6)out.push("П6: "+v.p6);}return out;}
+const paras=l=>l.flatMap(x=>x.split("\n")).map(p=>`<p>${fmt(p)}</p>`).join("");
+function renderPreview(){
+  const st=D.S[cur];const line=pline||null;const say=pick(st.say,line),note=pick(st.note,line);
+  const opts=(st.opts||[]).filter(o=>!(o[2]&&o[2].only&&o[2].only!==line));
+  let h=`<div class="pvbar"><span class="lbl">Так увидит оператор</span><div class="seg">${[["p5","П5"],["p6","П6"],["","Без линии"]].map(([v,l])=>`<button type="button" data-l="${v}" aria-pressed="${pline===v}">${l}</button>`).join("")}</div></div>
+  <div class="card${st.danger?" danger":line?" "+line:""}"><p class="kicker">${esc(st.kick||"")}</p><h1>${esc(st.t||"")}</h1>`;
+  if(say.length)h+=`<div class="block say"><h3>Скажите пациенту</h3>${paras(say)}</div>`;
+  if(note.length)h+=`<div class="block ${st.danger&&!say.length?"danger-block":"note"}"><h3>Оператору</h3>${paras(note)}</div>`;
+  if(opts.length){h+=`<div class="opts">`+opts.map((o,i)=>{const x=o[2]||{};const cls=x.line?x.line:x.end?"end":"";return `<button type="button" class="opt ${cls}" data-t="${esc(o[1])}" title="Открыть шаг в редакторе">${!x.line?`<span class="k">${i+1}</span>`:""}<span>${esc(o[0]||"(без надписи)")}${x.sub?`<small>${esc(x.sub)}</small>`:""}</span></button>`;}).join("")+`</div>`;}
+  h+=`</div><p class="hint">Нажмите кнопку в предпросмотре, чтобы перейти к редактированию следующего шага.</p>`;
+  const el=$("#spv");el.innerHTML=h;
+  el.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{pline=b.dataset.l;renderPreview();});
+  el.querySelectorAll(".opt").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(D.S[t]){const o=(st.opts||[]).find(z=>z[1]===t);if(o&&o[2]&&o[2].line)pline=o[2].line;cur=t;renderSteps();window.scrollTo({top:0});}});
+}
+
+/* ============ блоки: врачи и памятка ============ */
+function blocksHtml(list){return (list||[]).map(b=>{if(b.h!=null)return `<h4>${esc(b.h)}</h4>`;if(b.p!=null)return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");if(b.table){const hd=b.table.head||[];const u=hd.findIndex(x=>/участ/i.test(x));return `<table>${hd.length?`<tr>${hd.map(x=>`<th>${esc(x)}</th>`).join("")}</tr>`:""}${(b.table.rows||[]).map(r=>`<tr>${r.map((c,i)=>`<td${i===u?' class="u"':""}>${fmt(c||"")}</td>`).join("")}</tr>`).join("")}</table>`;}return "";}).join("");}
+function renderBlocks(list,title){
+  $("#view").innerHTML=`<div class="wide"><div class="panel"><h2>${esc(title)}</h2><p class="help">Заголовок, абзац текста или таблица. Порядок меняется стрелками. Справа — как увидит оператор.</p><div id="blks"></div>
+  <div class="addrow"><button type="button" class="btn" data-add="h">+ Заголовок</button><button type="button" class="btn" data-add="p">+ Текст</button><button type="button" class="btn" data-add="t">+ Таблица</button></div></div>
+  <div class="panel prevpane"><p class="lbl" style="margin:0 0 8px">Так увидит оператор</p><div id="bpv" class="pane" style="padding:0"></div></div></div>`;
+  const pv=()=>{$("#bpv").innerHTML=blocksHtml(list);};
+  const draw=()=>{
+    $("#blks").innerHTML=list.map((b,i)=>{const kind=b.h!=null?"Заголовок":b.p!=null?"Текст":"Таблица";let body="";
+      if(b.h!=null)body=`<input class="inp v" value="${esc(b.h)}" aria-label="Заголовок">`;
+      else if(b.p!=null)body=`<textarea class="inp v" rows="3" aria-label="Текст">${esc(b.p)}</textarea>`;
+      else{const t=b.table;const n=Math.max(t.head.length,...t.rows.map(r=>r.length),1);const cols=`grid-template-columns:repeat(${n},minmax(110px,1fr)) 34px`;
+        body=`<div class="tg">${t.head.length?`<div class="tr head" style="${cols}">${Array.from({length:n},(_,c)=>`<input class="inp hc" data-c="${c}" value="${esc(t.head[c]||"")}" aria-label="Заголовок столбца ${c+1}">`).join("")}<span></span></div>`:""}
+        ${t.rows.map((r,ri)=>`<div class="tr" style="${cols}">${Array.from({length:n},(_,c)=>`<textarea class="inp rc" rows="1" data-r="${ri}" data-c="${c}" aria-label="Строка ${ri+1}, столбец ${c+1}">${esc(r[c]||"")}</textarea>`).join("")}<button type="button" class="mini rdel" data-r="${ri}" title="Удалить строку" aria-label="Удалить строку">✕</button></div>`).join("")}</div>
+        <div class="addrow"><button type="button" class="btn radd">+ Строка</button><button type="button" class="btn cadd">+ Столбец</button>${n>1?`<button type="button" class="btn cdel">− Последний столбец</button>`:""}</div>`;}
+      return `<div class="blk" data-i="${i}"><div class="blk-h"><span class="lbl">${kind}</span><div class="ib"><button type="button" class="up" aria-label="Выше">↑</button><button type="button" class="dn" aria-label="Ниже">↓</button><button type="button" class="del" aria-label="Удалить блок">✕</button></div></div>${body}</div>`;}).join("")||`<p class="empty">Пусто. Добавьте блок кнопками ниже.</p>`;
+    $("#blks").querySelectorAll(".blk").forEach(el=>{const i=+el.dataset.i;const b=list[i];
+      const v=el.querySelector(".v");if(v)v.addEventListener("input",()=>{if(b.h!=null)b.h=v.value;else b.p=v.value;markDirty();pv();});
+      el.querySelectorAll(".hc").forEach(x=>x.addEventListener("input",()=>{b.table.head[+x.dataset.c]=x.value;markDirty();pv();}));
+      el.querySelectorAll(".rc").forEach(x=>x.addEventListener("input",()=>{const r=b.table.rows[+x.dataset.r];r[+x.dataset.c]=x.value;markDirty();pv();}));
+      el.querySelectorAll(".rdel").forEach(x=>x.onclick=()=>{b.table.rows.splice(+x.dataset.r,1);markDirty();draw();});
+      const ra=el.querySelector(".radd");if(ra)ra.onclick=()=>{const n=Math.max(b.table.head.length,...b.table.rows.map(r=>r.length),1);b.table.rows.push(Array(n).fill(""));markDirty();draw();};
+      const ca=el.querySelector(".cadd");if(ca)ca.onclick=()=>{if(b.table.head.length)b.table.head.push("");b.table.rows.forEach(r=>r.push(""));if(!b.table.head.length&&!b.table.rows.length)b.table.rows.push([""]);markDirty();draw();};
+      const cd=el.querySelector(".cdel");if(cd)cd.onclick=()=>{const n=Math.max(b.table.head.length,...b.table.rows.map(r=>r.length));if(b.table.head.length>=n)b.table.head.length=n-1;b.table.rows.forEach(r=>{if(r.length>=n)r.length=n-1;});markDirty();draw();};
+      el.querySelector(".up").onclick=()=>{if(i>0){[list[i-1],list[i]]=[list[i],list[i-1]];markDirty();draw();}};
+      el.querySelector(".dn").onclick=()=>{if(i<list.length-1){[list[i+1],list[i]]=[list[i],list[i+1]];markDirty();draw();}};
+      el.querySelector(".del").onclick=()=>{if(confirm("Удалить этот блок?")){list.splice(i,1);markDirty();draw();}};
+    });
+    pv();
+  };
+  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const k=b.dataset.add;list.push(k==="h"?{h:""}:k==="p"?{p:""}:{table:{head:["Участки","Врач","Заметки"],rows:[["","",""]]}});markDirty();draw();const all=$("#blks").querySelectorAll(".blk");all[all.length-1].scrollIntoView({block:"center"});const f=all[all.length-1].querySelector("input,textarea");if(f)f.focus();});
+  draw();
+}
+
+/* ============ нестандартное ============ */
+function renderOdd(){
+  $("#view").innerHTML=`<div style="padding:16px 20px;max-width:1100px"><div class="panel"><h2>Вкладка «Нестандартное»</h2><p class="help">Ситуация — коротко, как спросит пациент. Что делаем — ответ оператору; фразы для пациента пишите в «ёлочках».</p><div id="oddBox"></div><div class="addrow"><button type="button" class="btn" id="addGrp">+ Группа</button></div></div></div>`;
+  const draw=()=>{
+    $("#oddBox").innerHTML=D.ODD.map(([g,items],gi)=>`<div class="grpbox" data-g="${gi}"><div class="blk-h"><input class="inp gname" value="${esc(g)}" aria-label="Название группы" style="font-weight:600"><div class="ib"><button type="button" class="gup" aria-label="Группу выше">↑</button><button type="button" class="gdn" aria-label="Группу ниже">↓</button><button type="button" class="gdel del" aria-label="Удалить группу">✕</button></div></div>
+      ${items.map(([q,a],ii)=>`<div class="oddi" data-i="${ii}"><textarea class="inp q" rows="2" aria-label="Ситуация">${esc(q)}</textarea><textarea class="inp a" rows="2" aria-label="Что делаем">${esc(a)}</textarea><div class="ib"><button type="button" class="up" aria-label="Выше">↑</button><button type="button" class="dn" aria-label="Ниже">↓</button><button type="button" class="del" aria-label="Удалить">✕</button></div></div>`).join("")}
+      <button type="button" class="btn addI">+ Ситуация</button></div>`).join("");
+    $("#oddBox").querySelectorAll(".grpbox").forEach(gb=>{const gi=+gb.dataset.g;const grp=D.ODD[gi];
+      gb.querySelector(".gname").addEventListener("input",e=>{grp[0]=e.target.value;markDirty();});
+      gb.querySelector(".gup").onclick=()=>{if(gi>0){[D.ODD[gi-1],D.ODD[gi]]=[D.ODD[gi],D.ODD[gi-1]];markDirty();draw();}};
+      gb.querySelector(".gdn").onclick=()=>{if(gi<D.ODD.length-1){[D.ODD[gi+1],D.ODD[gi]]=[D.ODD[gi],D.ODD[gi+1]];markDirty();draw();}};
+      gb.querySelector(".gdel").onclick=()=>{if(confirm(`Удалить группу «${grp[0]}» со всеми ситуациями?`)){D.ODD.splice(gi,1);markDirty();draw();}};
+      gb.querySelector(".addI").onclick=()=>{grp[1].push(["",""]);markDirty();draw();const q=document.querySelectorAll(`.grpbox[data-g="${gi}"] .q`);q[q.length-1].focus();};
+      gb.querySelectorAll(".oddi").forEach(r=>{const ii=+r.dataset.i;const it=grp[1][ii];
+        r.querySelector(".q").addEventListener("input",e=>{it[0]=e.target.value;markDirty();});
+        r.querySelector(".a").addEventListener("input",e=>{it[1]=e.target.value;markDirty();});
+        r.querySelector(".up").onclick=()=>{if(ii>0){[grp[1][ii-1],grp[1][ii]]=[grp[1][ii],grp[1][ii-1]];markDirty();draw();}};
+        r.querySelector(".dn").onclick=()=>{if(ii<grp[1].length-1){[grp[1][ii+1],grp[1][ii]]=[grp[1][ii],grp[1][ii+1]];markDirty();draw();}};
+        r.querySelector(".del").onclick=()=>{grp[1].splice(ii,1);markDirty();draw();};});
+    });
+  };
+  $("#addGrp").onclick=()=>{D.ODD.push(["Новая группа",[["",""]]]);markDirty();draw();};
+  draw();
+}
+
+/* ============ проверка ============ */
+function validate(){
+  const pr=[];const reach=new Set(["start"]);
+  for(const[k,v]of Object.entries(D.S)){
+    if(!String(v.t||"").trim())pr.push({hard:1,id:k,m:"у шага нет названия"});
+    if(!(v.opts||[]).length)pr.push({id:k,m:"нет ни одной кнопки — оператор застрянет"});
+    (v.opts||[]).forEach((o,i)=>{if(!String(o[0]||"").trim())pr.push({hard:1,id:k,m:`кнопка №${i+1} без надписи`});
+      if(!o[1])pr.push({hard:1,id:k,m:`кнопка «${o[0]||i+1}» никуда не ведёт`});
+      else if(!(o[1] in SPECIAL)&&!D.S[o[1]])pr.push({hard:1,id:k,m:`кнопка «${o[0]}» ведёт на несуществующий шаг`});
+      else reach.add(o[1]);});
+  }
+  for(const k of Object.keys(D.S))if(!reach.has(k))pr.push({id:k,m:"на этот шаг не ведёт ни одна кнопка"});
+  if(!D.S.start)pr.push({hard:1,id:null,m:"нет первого шага (start)"});
+  return pr;
+}
+function showCheck(pr,title){
+  modal(`<h2>${esc(title||"Проверка")}</h2>${pr.length?`<ol class="chk">${pr.map(p=>`<li class="${p.hard?"hard":""}">${p.id?`<button type="button" data-id="${esc(p.id)}">${esc((D.S[p.id]&&D.S[p.id].t)||p.id)}</button>: `:""}${esc(p.m)}${p.hard?" — <b>ошибка</b>":""}</li>`).join("")}</ol><p class="help">Красным — ошибки, с ними сохранить нельзя. Остальное — предупреждения.</p>`:`<p>Ошибок нет: все кнопки ведут на существующие шаги.</p>`}<div class="acts"><button type="button" class="btn primary" data-close>Закрыть</button></div>`);
+  $("#modalBody").querySelectorAll("[data-id]").forEach(b=>b.onclick=()=>{closeModal();cur=b.dataset.id;go("steps");});
+}
+$("#bCheck").onclick=()=>showCheck(validate());
+
+/* ============ модальное окно ============ */
+function modal(html){$("#modalBody").innerHTML=html;$("#modal").classList.add("open");$("#modalBody").querySelectorAll("[data-close]").forEach(b=>b.onclick=closeModal);const f=$("#modalBody").querySelector("input,button");if(f)f.focus();}
+function closeModal(){$("#modal").classList.remove("open");}
+$("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
+
+/* ============ доступ к GitHub ============ */
+function openSettings(lead){
+  const c=cfg();
+  modal(`<h2>Доступ к GitHub</h2>${lead?`<p>${esc(lead)}</p>`:""}
+  <p class="help">Ключ хранится только в этом браузере. На чужом компьютере не сохраняйте.</p>
+  <div class="f"><label for="g_t">Ключ доступа (token)</label><input id="g_t" type="password" autocomplete="off" value="${esc(c.token)}" placeholder="github_pat_…"></div>
+  <details><summary>Как получить ключ</summary><ol>
+  <li>Войдите на github.com в аккаунт владельца репозитория.</li>
+  <li>Фото профиля → <b>Settings</b> → внизу слева <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b>.</li>
+  <li>Название — любое, например «Редактор скрипта». Срок — до года.</li>
+  <li><b>Repository access</b> → <b>Only select repositories</b> → выберите <b>${esc(c.repo)}</b>.</li>
+  <li><b>Permissions</b> → <b>Contents</b> → <b>Read and write</b>.</li>
+  <li><b>Generate token</b>, скопируйте ключ и вставьте сюда.</li></ol></details>
+  <details><summary>Репозиторий</summary><div class="row3"><div class="f"><label for="g_o">Владелец</label><input id="g_o" value="${esc(c.owner)}"></div><div class="f"><label for="g_r">Репозиторий</label><input id="g_r" value="${esc(c.repo)}"></div><div class="f"><label for="g_b">Ветка</label><input id="g_b" value="${esc(c.branch)}"></div></div></details>
+  <div class="acts"><button type="button" class="btn primary" id="g_save">Сохранить</button><button type="button" class="btn" id="g_del">Удалить ключ из браузера</button><button type="button" class="btn" data-close>Отмена</button></div>`);
+  $("#g_save").onclick=()=>{ls(LS_GH,JSON.stringify({token:$("#g_t").value.trim(),owner:$("#g_o").value.trim(),repo:$("#g_r").value.trim(),branch:$("#g_b").value.trim()}));closeModal();banner("Ключ сохранён в этом браузере.","ok");};
+  $("#g_del").onclick=()=>{const c2=cfg();ls(LS_GH,JSON.stringify({owner:c2.owner,repo:c2.repo,branch:c2.branch}));closeModal();banner("Ключ удалён из браузера.","ok");};
+}
+$("#bSet").onclick=()=>openSettings();
+
+/* ============ сохранение ============ */
+async function save(){
+  const c=cfg();
+  if(!c.token){openSettings("Чтобы сохранять изменения на сайт, нужен ключ доступа GitHub.");return;}
+  const pr=validate();if(pr.some(p=>p.hard)){showCheck(pr,"Сначала исправьте ошибки");return;}
+  const text=serializeData(D);
+  if(text===base){setState("Изменений нет");banner("Сохранять нечего: изменений нет.","ok");return;}
+  const url=`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js`;
+  const H={Authorization:"Bearer "+c.token,Accept:"application/vnd.github+json"};
+  $("#bSave").disabled=true;setState("Сохраняю…");
+  try{
+    const r0=await fetch(url+"?ref="+encodeURIComponent(c.branch),{headers:H,cache:"no-store"});
+    if(r0.status===401)throw new Error("Ключ не подошёл или срок его действия закончился. Создайте новый в «Доступ GitHub».");
+    if(r0.status===404)throw new Error("У ключа нет доступа к репозиторию "+c.owner+"/"+c.repo+".");
+    if(!r0.ok)throw new Error("GitHub ответил ошибкой "+r0.status+".");
+    const remote=await r0.json();
+    if(b64dec(remote.content)!==base){setState("Есть несохранённые изменения","dirty");banner("Пока вы редактировали, скрипт на сайте изменил кто-то другой. Скачайте свою версию кнопкой «Скачать data.js», обновите страницу и внесите правки заново.","err");return;}
+    const msg=$("#msg").value.trim()||"Правка скрипта через редактор";
+    const r=await fetch(url,{method:"PUT",headers:{...H,"Content-Type":"application/json"},body:JSON.stringify({message:msg,content:b64enc(text),sha:remote.sha,branch:c.branch})});
+    if(r.status===403||r.status===404)throw new Error("У ключа нет права на запись. При создании ключа выберите Contents: Read and write.");
+    if(r.status===409)throw new Error("Скрипт на сайте изменился. Обновите страницу.");
+    if(!r.ok)throw new Error("GitHub ответил ошибкой "+r.status+".");
+    base=text;dirty=false;ls(LS_DRAFT,null);$("#msg").value="";
+    setState("Сохранено","ok");banner("Сохранено. У операторов изменения появятся через 1–2 минуты после обновления страницы.","ok");
+  }catch(e){setState("Не сохранено","err");banner(esc(e.message||"Не удалось сохранить. Проверьте интернет."),"err");}
+  finally{$("#bSave").disabled=false;}
+}
+$("#bSave").onclick=save;
+$("#bDl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([serializeData(D)],{type:"text/javascript"}));a.download="data.js";document.body.appendChild(a);a.click();a.remove();};
+
+function grow(t){t.style.height="auto";t.style.height=(t.scrollHeight+2)+"px";}
+document.addEventListener("input",e=>{if(e.target.tagName==="TEXTAREA")grow(e.target);});
+new MutationObserver(()=>{clearTimeout(grow.t);grow.t=setTimeout(()=>document.querySelectorAll("#view textarea").forEach(grow),0);}).observe(document.getElementById("view"),{childList:true,subtree:true});
+load().catch(e=>{setState("Ошибка","err");$("#view").innerHTML=`<div class="banner err" style="margin:20px"><span>Не удалось загрузить данные скрипта: ${esc(e.message)}</span></div>`;});
+</script>
+</body>
+</html>
