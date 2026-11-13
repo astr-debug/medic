@@ -18,7 +18,6 @@
 .state.dirty{color:var(--note-line);border-color:var(--note-line);background:var(--note-bg)}
 .state.ok{color:var(--say-line);border-color:var(--say-line);background:var(--say-bg)}
 .state.err{color:var(--danger);border-color:var(--danger);background:var(--danger-soft)}
-#msg{width:200px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit}
 .atabs{display:flex;gap:4px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
 .atabs button{border:0;background:none;padding:11px 14px;cursor:pointer;font:600 14px var(--display);color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 .atabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
@@ -115,7 +114,6 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
 <header class="top">
   <div class="brand">Редактор скрипта<small>П5 и П6 · бюджет</small></div>
   <span id="state" class="state">Загрузка…</span>
-  <input id="msg" type="text" placeholder="Что поменяли (необязательно)" aria-label="Что поменяли">
   <button id="bCheck" class="btn" type="button">Проверить</button>
   <button id="bDl" class="btn" type="button">Скачать data.js</button>
   <button id="bHist" class="btn" type="button">История</button>
@@ -491,6 +489,24 @@ async function restoreVersion(cm,when){
 $("#bHist").onclick=openHistory;
 
 
+
+/* Подпись к сохранению составляется сама — по тому, что изменилось */
+function autoMessage(before,after){
+  const sm=summarize(before,after);
+  if(!sm.length)return "Правка скрипта через редактор";
+  const q=x=>"«"+x+"»";
+  const list=(arr,one,many)=>arr.length===1?one+" "+q(arr[0]):many+": "+(arr.length<=3?arr.join(", "):arr.slice(0,2).join(", ")+" и ещё "+(arr.length-2));
+  const parts=sm.map(([name,items])=>{
+    if(name==="Изменены шаги")return list(items,"Шаг","Шаги");
+    if(name==="Добавлены шаги")return list(items,"Новый шаг","Новые шаги");
+    if(name==="Удалены шаги")return list(items,"Удалён шаг","Удалены шаги");
+    return name;
+  });
+  let title=parts.join("; ");
+  if(title.length>110){let t="";for(let i=0;i<parts.length;i++){const n=(t?t+"; ":"")+parts[i];if(n.length>95){t+=(t?"; ":"")+"и ещё "+(parts.length-i);break;}t=n;}title=t;}
+  const body=sm.map(([name,items,kind,more])=>name+":\n"+items.slice(0,8).map(x=>"  "+(Array.isArray(x)?x[1]:x)).join("\n")+(more?"\n  …и ещё "+more:"")).join("\n");
+  return title+"\n\n"+body;
+}
 /* ============ сохранение ============ */
 async function save(){
   const c=cfg();
@@ -508,12 +524,12 @@ async function save(){
     if(!r0.ok)throw new Error("GitHub ответил ошибкой "+r0.status+".");
     const remote=await r0.json();
     if(b64dec(remote.content)!==base){setState("Есть несохранённые изменения","dirty");banner("Пока вы редактировали, скрипт на сайте изменил кто-то другой. Скачайте свою версию кнопкой «Скачать data.js», обновите страницу и внесите правки заново.","err");return;}
-    const msg=$("#msg").value.trim()||"Правка скрипта через редактор";
+    const msg=autoMessage(parse(base),D);
     const r=await fetch(url,{method:"PUT",headers:{...H,"Content-Type":"application/json"},body:JSON.stringify({message:msg,content:b64enc(text),sha:remote.sha,branch:c.branch})});
     if(r.status===403||r.status===404)throw new Error("Ключ не даёт права сохранять. Попросите новый ключ у ответственного за сайт (при создании нужно выбрать Contents: Read and write).");
     if(r.status===409)throw new Error("Скрипт на сайте изменился. Обновите страницу.");
     if(!r.ok)throw new Error("GitHub ответил ошибкой "+r.status+".");
-    base=text;dirty=false;ls(LS_DRAFT,null);$("#msg").value="";
+    base=text;dirty=false;ls(LS_DRAFT,null);
     setState("Сохранено","ok");banner("Сохранено. У операторов изменения появятся через 1–2 минуты после обновления страницы.","ok");
   }catch(e){setState("Не сохранено","err");banner(esc(e.message||"Не удалось сохранить. Проверьте интернет."),"err");}
   finally{$("#bSave").disabled=false;}
