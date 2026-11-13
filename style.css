@@ -126,3 +126,9 @@ tr.hl td,p.hl,h4.hl,details.hl{background:var(--note-bg);transition:background 1
 .qnav button:hover{border-color:var(--accent);color:var(--ink)}
 .qnav button[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .pane h4[data-sec]{scroll-margin-top:var(--qnav-h,96px)}
+
+/* Блоки «подсказка» и «важно», списки (памятка, руководство) */
+.tipb{border-left:4px solid var(--say-line);background:var(--say-bg);border-radius:10px;padding:10px 14px;margin:10px 0;line-height:1.55}
+.tipb.warn{border-left-color:var(--note-line);background:var(--note-bg)}
+.pane ul.blist{margin:4px 0 10px;padding-left:20px;font-size:13.5px}
+.pane ul.blist li{margin-bottom:4px}

@@ -113,6 +113,7 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
   <button type="button" data-v="p6">Врачи П6</button>
   <button type="button" data-v="odd">Нестандартное</button>
   <button type="button" data-v="memo">Памятка</button>
+  <button type="button" data-v="help">Руководство операторам</button>
   <a class="btn" href="admin-help.html" target="_blank" rel="noopener" style="margin:6px 0 6px auto;text-decoration:none;align-self:center;color:var(--accent)">Как пользоваться</a>
   <a class="btn" href="./" target="_blank" rel="noopener" style="margin:6px 0;text-decoration:none;align-self:center;color:var(--accent)">Открыть скрипт</a>
 </nav>
@@ -122,6 +123,7 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
 <div id="modal" class="modal" role="dialog" aria-modal="true"><div class="panel" id="modalBody"></div></div>
 
 <script src="serialize.js"></script>
+<script src="blocks.js"></script>
 <script>
 /* ============ состояние ============ */
 let D=null, base="", dirty=false, cur="start", view="steps", pline="p5", listQ="";
@@ -135,7 +137,7 @@ function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null
 function cfg(){let g={};try{g=JSON.parse(ls(LS_GH)||"{}")}catch(e){}return{owner:g.owner||"astr-debug",repo:g.repo||"medic",branch:g.branch||"main",token:g.token||""};}
 function b64dec(s){const bin=atob(s.replace(/\s/g,""));const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new TextDecoder().decode(u);}
 function b64enc(s){const u=new TextEncoder().encode(s);let bin="";for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(bin);}
-function parse(text){return new Function(text+"\n;return {S:S,DOCTORS:DOCTORS,ODD:ODD,MEMO:MEMO};")();}
+function parse(text){return new Function(text+"\n;return {S:S,DOCTORS:DOCTORS,ODD:ODD,MEMO:MEMO,HELP:(typeof HELP!==\"undefined\"?HELP:[])};")();}
 function setState(t,cls){const e=$("#state");e.textContent=t;e.className="state"+(cls?" "+cls:"");}
 function banner(html,cls,actions){const b=document.createElement("div");b.className="banner"+(cls?" "+cls:"");b.innerHTML=`<span>${html}</span>`;(actions||[]).forEach(([l,f,primary])=>{const x=document.createElement("button");x.type="button";x.className="btn"+(primary?" primary":"");x.textContent=l;x.onclick=()=>{f();b.remove();};b.appendChild(x);});const c=document.createElement("button");c.type="button";c.className="btn";c.textContent="Скрыть";c.onclick=()=>b.remove();b.appendChild(c);$("#banners").prepend(b);return b;}
 
@@ -151,7 +153,7 @@ async function load(){
   }
   if(text===null){const r=await fetch("data.js?v="+Date.now(),{cache:"no-store"});text=await r.text();}
   D=parse(text); base=text; dirty=false;
-  D.DOCTORS=D.DOCTORS||{p5:[],p6:[]}; D.DOCTORS.p5=D.DOCTORS.p5||[]; D.DOCTORS.p6=D.DOCTORS.p6||[]; D.ODD=D.ODD||[]; D.MEMO=D.MEMO||[];
+  D.DOCTORS=D.DOCTORS||{p5:[],p6:[]}; D.DOCTORS.p5=D.DOCTORS.p5||[]; D.DOCTORS.p6=D.DOCTORS.p6||[]; D.ODD=D.ODD||[]; D.MEMO=D.MEMO||[]; D.HELP=D.HELP||[];
   setState("Изменений нет");
   const dr=ls(LS_DRAFT);
   if(dr){try{const d=JSON.parse(dr); if(serializeData(d.data)!==text){
@@ -164,7 +166,7 @@ window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.return
 
 /* ============ вкладки ============ */
 function go(v){view=v;document.querySelectorAll(".atabs [data-v]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));
-  if(v==="steps")renderSteps(); else if(v==="p5"||v==="p6")renderBlocks(D.DOCTORS[v],"Вкладка «Врачи» — "+(v==="p5"?"П5":"П6")); else if(v==="memo")renderBlocks(D.MEMO,"Вкладка «Памятка»"); else renderOdd();}
+  if(v==="steps")renderSteps(); else if(v==="p5"||v==="p6")renderBlocks(D.DOCTORS[v],"Вкладка «Врачи» — "+(v==="p5"?"П5":"П6")); else if(v==="memo")renderBlocks(D.MEMO,"Вкладка «Памятка»"); else if(v==="help")renderBlocks(D.HELP,"Руководство для операторов (кнопка «?» в скрипте)",{h:"h3",doc:true}); else renderOdd();}
 document.querySelectorAll(".atabs [data-v]").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
 /* ============ шаги ============ */
@@ -273,23 +275,23 @@ function renderPreview(){
 }
 
 /* ============ блоки: врачи и памятка ============ */
-function blocksHtml(list){return (list||[]).map(b=>{if(b.h!=null)return `<h4>${esc(b.h)}</h4>`;if(b.p!=null)return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");if(b.table){const hd=b.table.head||[];const u=hd.findIndex(x=>/участ/i.test(x));const tl=hd.findIndex(x=>/телефон|номер/i.test(x));return `<table>${hd.length?`<tr>${hd.map(x=>`<th>${esc(x)}</th>`).join("")}</tr>`:""}${(b.table.rows||[]).map(r=>`<tr>${r.map((c,i)=>`<td${i===u?' class="u"':i===tl?' class="tel"':""}>${i===tl?(c||"").split(/,\s*|\s+\/\s+|;\s*/).filter(Boolean).map(x=>`<span class="nw">${fmt(x)}</span>`).join("<br>"):fmt(c||"")}</td>`).join("")}</tr>`).join("")}</table>`;}return "";}).join("");}
-function renderBlocks(list,title){
-  $("#view").innerHTML=`<div class="wide"><div class="panel"><h2>${esc(title)}</h2><p class="help">Заголовок, абзац текста или таблица. Порядок меняется стрелками. Справа — как увидит оператор.</p><div id="blks"></div>
-  <div class="addrow"><button type="button" class="btn" data-add="h">+ Заголовок</button><button type="button" class="btn" data-add="p">+ Текст</button><button type="button" class="btn" data-add="t">+ Таблица</button></div></div>
+function renderBlocks(list,title,popt){
+  $("#view").innerHTML=`<div class="wide"><div class="panel"><h2>${esc(title)}</h2><p class="help">Блоки: заголовок, текст, список, подсказка, таблица. Порядок меняется стрелками. Справа — как увидит оператор. **Жирный текст** — в двух звёздочках. В списке каждый пункт с новой строки.</p><div id="blks"></div>
+  <div class="addrow"><button type="button" class="btn" data-add="h">+ Заголовок</button><button type="button" class="btn" data-add="p">+ Текст</button><button type="button" class="btn" data-add="l">+ Список</button><button type="button" class="btn" data-add="tip">+ Подсказка (зелёная)</button><button type="button" class="btn" data-add="warn">+ Важно (жёлтая)</button><button type="button" class="btn" data-add="t">+ Таблица</button></div></div>
   <div class="panel prevpane"><p class="lbl" style="margin:0 0 8px">Так увидит оператор</p><div id="bpv" class="pane" style="padding:0"></div></div></div>`;
-  const pv=()=>{$("#bpv").innerHTML=blocksHtml(list);};
+  const pv=()=>{$("#bpv").innerHTML=blocksHtml(list,popt);};
   const draw=()=>{
-    $("#blks").innerHTML=list.map((b,i)=>{const kind=b.h!=null?"Заголовок":b.p!=null?"Текст":"Таблица";let body="";
+    $("#blks").innerHTML=list.map((b,i)=>{const kind=b.h!=null?"Заголовок":b.p!=null?"Текст":b.list!=null?"Список — каждый пункт с новой строки":b.tip!=null?"Подсказка (зелёная)":b.warn!=null?"Важно (жёлтая)":"Таблица";let body="";
       if(b.h!=null)body=`<input class="inp v" value="${esc(b.h)}" aria-label="Заголовок">`;
       else if(b.p!=null)body=`<textarea class="inp v" rows="3" aria-label="Текст">${esc(b.p)}</textarea>`;
+      else if(b.list!=null||b.tip!=null||b.warn!=null){const k=b.list!=null?"list":b.tip!=null?"tip":"warn";body=`<textarea class="inp v" data-k="${k}" rows="4" aria-label="${k==="list"?"Пункты списка":"Текст"}">${esc(b[k])}</textarea>`;}
       else{const t=b.table;const n=Math.max(t.head.length,...t.rows.map(r=>r.length),1);const cols=`grid-template-columns:repeat(${n},minmax(110px,1fr)) 34px`;
         body=`<div class="tg">${t.head.length?`<div class="tr head" style="${cols}">${Array.from({length:n},(_,c)=>`<input class="inp hc" data-c="${c}" value="${esc(t.head[c]||"")}" aria-label="Заголовок столбца ${c+1}">`).join("")}<span></span></div>`:""}
         ${t.rows.map((r,ri)=>`<div class="tr" style="${cols}">${Array.from({length:n},(_,c)=>`<textarea class="inp rc" rows="1" data-r="${ri}" data-c="${c}" aria-label="Строка ${ri+1}, столбец ${c+1}">${esc(r[c]||"")}</textarea>`).join("")}<button type="button" class="mini rdel" data-r="${ri}" title="Удалить строку" aria-label="Удалить строку">✕</button></div>`).join("")}</div>
         <div class="addrow"><button type="button" class="btn radd">+ Строка</button><button type="button" class="btn cadd">+ Столбец</button>${n>1?`<button type="button" class="btn cdel">− Последний столбец</button>`:""}</div>`;}
       return `<div class="blk" data-i="${i}"><div class="blk-h"><span class="lbl">${kind}</span><div class="ib"><button type="button" class="up" aria-label="Выше">↑</button><button type="button" class="dn" aria-label="Ниже">↓</button><button type="button" class="del" aria-label="Удалить блок">✕</button></div></div>${body}</div>`;}).join("")||`<p class="empty">Пусто. Добавьте блок кнопками ниже.</p>`;
     $("#blks").querySelectorAll(".blk").forEach(el=>{const i=+el.dataset.i;const b=list[i];
-      const v=el.querySelector(".v");if(v)v.addEventListener("input",()=>{if(b.h!=null)b.h=v.value;else b.p=v.value;markDirty();pv();});
+      const v=el.querySelector(".v");if(v)v.addEventListener("input",()=>{if(v.dataset.k)b[v.dataset.k]=v.value;else if(b.h!=null)b.h=v.value;else b.p=v.value;markDirty();pv();});
       el.querySelectorAll(".hc").forEach(x=>x.addEventListener("input",()=>{b.table.head[+x.dataset.c]=x.value;markDirty();pv();}));
       el.querySelectorAll(".rc").forEach(x=>x.addEventListener("input",()=>{const r=b.table.rows[+x.dataset.r];r[+x.dataset.c]=x.value;markDirty();pv();}));
       el.querySelectorAll(".rdel").forEach(x=>x.onclick=()=>{b.table.rows.splice(+x.dataset.r,1);markDirty();draw();});
@@ -302,7 +304,7 @@ function renderBlocks(list,title){
     });
     pv();
   };
-  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const k=b.dataset.add;list.push(k==="h"?{h:""}:k==="p"?{p:""}:{table:{head:["Участки","Врач","Заметки"],rows:[["","",""]]}});markDirty();draw();const all=$("#blks").querySelectorAll(".blk");all[all.length-1].scrollIntoView({block:"center"});const f=all[all.length-1].querySelector("input,textarea");if(f)f.focus();});
+  document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{const k=b.dataset.add;list.push(k==="h"?{h:""}:k==="p"?{p:""}:k==="l"?{list:""}:k==="tip"?{tip:""}:k==="warn"?{warn:""}:{table:{head:["Участки","Врач","Заметки"],rows:[["","",""]]}});markDirty();draw();const all=$("#blks").querySelectorAll(".blk");all[all.length-1].scrollIntoView({block:"center"});const f=all[all.length-1].querySelector("input,textarea");if(f)f.focus();});
   draw();
 }
 

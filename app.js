@@ -67,17 +67,6 @@ function back(){ if(!state.hist.length) return; const h=state.hist.pop(); state.
 function jumpBack(i){ const h=state.hist[i]; state.hist=state.hist.slice(0,i); state.cur=h.cur; state.line=h.line; render(); }
 function newCall(){ state.cur="start"; state.line=null; state.hist=[]; render(); window.scrollTo({top:0}); }
 
-function blocksHtml(list){
-  return (list||[]).map(b=>{
-    if(b.h!=null) return `<h4 data-sec>${esc(b.h)}</h4>`;
-    if(b.p!=null) return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");
-    if(b.table){
-      const head=b.table.head||[]; const u=head.findIndex(x=>/участ/i.test(x));const tl=head.findIndex(x=>/телефон|номер/i.test(x));
-      return `<table>${head.length?`<tr>${head.map(x=>`<th>${esc(x)}</th>`).join("")}</tr>`:""}${(b.table.rows||[]).map(r=>`<tr>${r.map((c,i)=>`<td${i===u?' class="u"':i===tl?' class="tel"':""}>${i===tl?(c||"").split(/,\s*|\s+\/\s+|;\s*/).filter(Boolean).map(x=>`<span class="nw">${fmt(x)}</span>`).join("<br>"):fmt(c||"")}</td>`).join("")}</tr>`).join("")}</table>`;
-    }
-    return "";
-  }).join("");
-}
 function secLabel(h){
   let t=h.replace(/\s*\([^)]*\)/g,"").replace(/\s+П[56]$/,"").trim();
   const parts=t.split(" · ");
@@ -135,10 +124,12 @@ function buildIndex(){
     out.push({kind:"Шаги скрипта", title:st.t, sub:st.kick||"", parts:{a:sa.a+"\n"+no.a, p5:sa.p5+"\n"+no.p5, p6:sa.p6+"\n"+no.p6}, act:{step:id}});
   }
   const blocks=(list,kind,line,tab)=>{
-    let h="", tr=0, pi=0, hi=0;
+    let h="", tr=0, pi=0, hi=0, li=0, ti=0;
     (list||[]).forEach(b=>{
       if(b.h!=null){ h=b.h; out.push({kind,title:b.h,sub:"",parts:{a:""},line,act:{tab,line,sel:"h4",n:hi++}}); }
-      else if(b.p!=null){ b.p.split("\n").forEach(line_=>{ out.push({kind,title:h||kind,sub:"",parts:{a:line_},line,act:{tab,line,sel:"p",n:pi++}}); }); }
+      else if(b.p!=null){ b.p.split("\n").forEach(line_=>{ out.push({kind,title:h||kind,sub:"",parts:{a:line_.replace(/\*\*/g,"")},line,act:{tab,line,sel:"p",n:pi++}}); }); }
+      else if(b.list!=null){ b.list.split("\n").filter(x=>x.trim()).forEach(x=>out.push({kind,title:h||kind,sub:"",parts:{a:x.replace(/\*\*/g,"")},line,act:{tab,line,sel:"li",n:li++}})); }
+      else if(b.tip!=null||b.warn!=null){ out.push({kind,title:h||kind,sub:"",parts:{a:(b.tip||b.warn).replace(/\*\*/g,"")},line,act:{tab,line,sel:".tipb",n:ti++}}); }
       else if(b.table){ const head=b.table.head||[]; const ni=head.findIndex(x=>/врач|фио/i.test(x));
         (b.table.rows||[]).forEach(r=>{ const name=ni>=0?r[ni]:(/участ/i.test(head[0]||"")&&r[0]?"Участки "+r[0]:r.find(c=>c&&c!=="—")||""); out.push({kind,title:name||h,sub:h,parts:{a:r.map((c,i)=>(head[i]?head[i]+": ":"")+(c||"")).join(" · ")},line,act:{tab,line,sel:"tr",n:tr++}}); }); }
     });

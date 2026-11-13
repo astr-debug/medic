@@ -22,7 +22,8 @@ function serializeData(d){
     "   S       — шаги скрипта",
     "   DOCTORS — вкладка «Врачи» (p5 и p6)",
     "   ODD     — вкладка «Нестандартное»",
-    "   MEMO    — вкладка «Памятка» */",
+    "   MEMO    — вкладка «Памятка»",
+    "   HELP    — руководство для операторов (кнопка «?») */",
     "",
     "const S = {\n" + steps.join(",\n") + "\n};",
     "",
@@ -31,6 +32,8 @@ function serializeData(d){
     "const ODD = " + pretty(d.ODD) + ";",
     "",
     "const MEMO = " + blocks(d.MEMO) + ";",
+    "",
+    "const HELP = " + blocks(d.HELP || []) + ";",
     ""
   ].join("\n");
 }
