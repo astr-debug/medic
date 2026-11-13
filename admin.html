@@ -479,53 +479,120 @@ async function openHistory(){
   }catch(e){modal(`<h2>История сохранений</h2><p>Не удалось загрузить историю: ${esc(e.message)}. Проверьте интернет или ключ доступа.</p><div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`);$("#modalBody").classList.add("wide-m");return;}
   const fmtD=iso=>new Date(iso).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   modal(`<h2>История сохранений</h2>
-  <p class="help">Последние 30 сохранений из редактора, сверху новые. «Что изменилось» — что поменяли в этом сохранении. «Вернуть эту версию» — скрипт станет таким, каким был сразу после этого сохранения; всё, что меняли позже, отменится (это тоже запишется в историю, так что возврат можно отменить).</p>
+  <p class="help">Последние 30 сохранений из редактора, сверху новые. «Что изменилось» — что поменяли в этом сохранении. «Отменить это сохранение» — убирает только правки из этого сохранения, всё остальное, в том числе более поздние изменения, остаётся. Отмена тоже записывается в историю, и её можно отменить так же.</p>
   <div class="hl-list">${histList.length?"":`<p class="empty">Сохранений из редактора пока нет.</p>`}${histList.map((cm,i)=>`<div class="hl-item${cm.sha===histTop?" cur":""}" data-i="${i}"><div class="hl-top"><b>${esc((cm.commit.message||"").split("\n")[0])}</b><span class="when">${fmtD(cm.commit.committer.date)}</span>${cm.sha===histTop?`<span class="hl-cur">✓ сейчас на сайте</span>`:""}
-    <span class="acts2"><button type="button" class="btn hd">Что изменилось</button>${cm.sha!==histTop?`<button type="button" class="btn hr">Вернуть эту версию</button>`:""}</span></div><div class="diff" hidden></div></div>`).join("")}</div>
+    <span class="acts2"><button type="button" class="btn hd">Что изменилось</button>${i<histList.length-1||cm.parents&&cm.parents.length?`<button type="button" class="btn hr">Отменить это сохранение</button>`:""}</span></div><div class="diff" hidden></div></div>`).join("")}</div>
   <div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`);
   $("#modalBody").classList.add("wide-m");
   $("#modalBody").querySelectorAll(".hl-item").forEach(el=>{const i=+el.dataset.i;const cm=histList[i];const box=el.querySelector(".diff");
     el.querySelector(".hd").onclick=async()=>{if(!box.hidden){box.hidden=true;return;}box.hidden=false;box.innerHTML=`<p class="help" style="margin:0">Сравниваю…</p>`;
       try{const cur=await dataAt(cm.sha);const par=cm.parents&&cm.parents[0]?await dataAt(cm.parents[0].sha).catch(()=>null):null;
         box.innerHTML=par?summaryHtml(summarize(par.d,cur.d)):`<p class="help" style="margin:0">Это первая версия скрипта.</p>`;}catch(e){box.innerHTML=`<p class="help" style="margin:0">Не удалось сравнить: ${esc(e.message)}</p>`;}};
-    const rb=el.querySelector(".hr");if(rb)rb.onclick=()=>restoreVersion(cm,fmtD(cm.commit.committer.date));
+    const rb=el.querySelector(".hr");if(rb)rb.onclick=()=>undoSave(cm,fmtD(cm.commit.committer.date));
   });
 }
-async function restoreVersion(cm,when){
+
+/* ============ отмена одного сохранения (остальные правки не трогаются) ============
+   P — версия до сохранения, C — после, N — сейчас на сайте.
+   Отменяем только то, что изменилось между P и C, и только если с тех пор это не меняли. */
+const KJ=x=>JSON.stringify(x);
+function undoList(P,C,N,keyFn,pairFn){
+  keyFn=keyFn||KJ;const pk=P.map(keyFn),ck=C.map(keyFn);const res=N.slice();const bad=[];let done=0;
+  const cnt=a=>{const m=new Map();a.forEach(k=>m.set(k,(m.get(k)||0)+1));return m;};
+  const added=[];{const m=cnt(pk);ck.forEach((k,i)=>{if(m.get(k)>0)m.set(k,m.get(k)-1);else added.push(C[i]);});}
+  const removed=[];{const m=cnt(ck);pk.forEach((k,i)=>{if(m.get(k)>0)m.set(k,m.get(k)-1);else removed.push([i,P[i]]);});}
+  const skip=new Set();
+  added.forEach(a=>{const i=res.findIndex(x=>keyFn(x)===keyFn(a));
+    if(i>=0){res.splice(i,1);done++;}
+    else{bad.push(a);/* изменённый позже элемент: не возвращаем его старую копию, чтобы не было дублей */
+      const pr=removed.find(([,r])=>!skip.has(r)&&pairFn&&pairFn(r,a));if(pr)skip.add(pr[1]);}});
+  removed.forEach(([pi,r])=>{if(skip.has(r))return;let at=-1;
+    for(let j=pi-1;j>=0&&at<0;j--){const t=res.findIndex(x=>keyFn(x)===pk[j]);if(t>=0)at=t+1;}
+    if(at<0)for(let j=pi+1;j<P.length&&at<0;j++){const t=res.findIndex(x=>keyFn(x)===pk[j]);if(t>=0)at=t;}
+    if(at<0)at=pi===0?0:res.length;res.splice(at,0,r);done++;});
+  return {res,bad,done};
+}
+const rowPair=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a[0]===b[0];
+function undoBlocks(P,C,N,name,rep){
+  P=P||[];C=C||[];N=N||[];
+  const tkey=list=>{let h="";return list.map(b=>{if(b.h!=null){h=b.h;return KJ(b);}if(b.table)return "T|"+h+"|"+(b.table.head||[]).join("|");return KJ(b);});};
+  const keyed=list=>{const ks=tkey(list);return list.map((b,i)=>({b,k:ks[i]}));};
+  const Pk=keyed(P),Ck=keyed(C),Nk=keyed(N);
+  const r=undoList(Pk,Ck,Nk,x=>x.k);
+  r.bad.forEach(x=>rep.bad.push(name+": блок «"+(x.b.h||x.b.p||x.b.list||x.b.tip||x.b.warn||"таблица").toString().slice(0,50)+"» изменён позже"));
+  rep.done+=r.done;
+  /* таблицы — построчно */
+  const out=r.res.map(x=>{if(!x.b.table)return x.b;const p=Pk.find(y=>y.k===x.k),c=Ck.find(y=>y.k===x.k);
+    if(!p||!c||KJ(p.b)===KJ(c.b))return x.b;
+    const rr=undoList(p.b.table.rows||[],c.b.table.rows||[],x.b.table.rows||[],KJ,rowPair);
+    rr.bad.forEach(row=>rep.bad.push(name+": строка «"+row.filter(Boolean).join(" · ").slice(0,60)+"» изменена позже"));
+    rep.done+=rr.done;const nb=JSON.parse(JSON.stringify(x.b));nb.table.rows=rr.res;
+    if(KJ(p.b.table.head)!==KJ(c.b.table.head)&&KJ(x.b.table.head)===KJ(c.b.table.head)){nb.table.head=p.b.table.head;rep.done++;}
+    return nb;});
+  return out;
+}
+function undoSteps(P,C,N,rep){
+  const ids=new Set([...Object.keys(P),...Object.keys(C)]);const res=Object.entries(N);const t=st=>"«"+((st&&st.t)||"шаг")+"»";
+  const findI=id=>res.findIndex(([k])=>k===id);const removedIds=[];
+  ids.forEach(id=>{const p=P[id],c=C[id];if(KJ(p)===KJ(c))return;const ni=findI(id);const n=ni>=0?res[ni][1]:undefined;
+    if(!p){ if(n&&KJ(n)===KJ(c)){res.splice(ni,1);removedIds.push(id);rep.done++;} else if(n)rep.bad.push("Шаг "+t(c)+" изменён позже — не удалён"); return; }
+    if(!c){ if(ni<0){const order=Object.keys(P);const pi=order.indexOf(id);let at=-1;
+        for(let j=pi-1;j>=0&&at<0;j--){const q=findI(order[j]);if(q>=0)at=q+1;} if(at<0)at=res.length;
+        res.splice(at,0,[id,JSON.parse(JSON.stringify(p))]);rep.done++;} return; }
+    if(n&&KJ(n)===KJ(c)){res[ni][1]=JSON.parse(JSON.stringify(p));rep.done++;} else if(n)rep.bad.push("Шаг "+t(c)+" изменён позже — не отменён"); else rep.bad.push("Шаг "+t(c)+" уже удалён");
+  });
+  const out=Object.fromEntries(res);
+  if(removedIds.length)for(const v of Object.values(out))if(v.opts)v.opts=v.opts.filter(o=>!removedIds.includes(o[1]));
+  return out;
+}
+function undoChange(P,C,N){
+  const rep={done:0,bad:[]};const T=JSON.parse(JSON.stringify(N));
+  T.S=undoSteps(P.S||{},C.S||{},N.S||{},rep);
+  ["p5","p6"].forEach(l=>{T.DOCTORS[l]=undoBlocks((P.DOCTORS||{})[l],(C.DOCTORS||{})[l],(N.DOCTORS||{})[l],"Врачи "+(l==="p5"?"П5":"П6"),rep);});
+  T.MEMO=undoBlocks(P.MEMO,C.MEMO,N.MEMO,"Памятка",rep);
+  T.HELP=undoBlocks(P.HELP||[],C.HELP||[],N.HELP||[],"Руководство операторам",rep);
+  /* нестандартное: группы, внутри — ситуации */
+  const g=x=>x[0];const r=undoList(P.ODD||[],C.ODD||[],N.ODD||[],g);rep.done+=r.done;
+  T.ODD=r.res.map(gr=>{const p=(P.ODD||[]).find(x=>x[0]===gr[0]),c=(C.ODD||[]).find(x=>x[0]===gr[0]);if(!p||!c||KJ(p)===KJ(c))return gr;
+    const rr=undoList(p[1],c[1],gr[1],KJ,rowPair);rr.bad.forEach(it=>rep.bad.push("Нестандартное: «"+String(it[0]).slice(0,50)+"» изменено позже"));rep.done+=rr.done;return [gr[0],rr.res];});
+  const ra=undoList(P.ABSENT||[],C.ABSENT||[],N.ABSENT||[],KJ,(a,b)=>a&&b&&a.who===b.who);rep.done+=ra.done;
+  ra.bad.forEach(x=>rep.bad.push("Отпуска: «"+(x.who||"")+"» изменено позже"));T.ABSENT=ra.res;
+  return {T,rep};
+}
+async function undoSave(cm,when){
   const c=cfg();
-  if(!c.token){openSettings("Чтобы вернуть версию, нужен ключ доступа.");return;}
-  const box=$("#modalBody");
-  box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2><p class="help">Загружаю и сравниваю с тем, что сейчас на сайте…</p>`;
+  if(!c.token){openSettings("Чтобы отменить сохранение, нужен ключ доступа.");return;}
+  const box=$("#modalBody");const title=(cm.commit.message||"").split("\n")[0];
+  box.innerHTML=`<h2>Отменить сохранение от ${esc(when)}?</h2><p class="help">Сравниваю…</p>`;
   try{
-    const [old,now]=await Promise.all([dataAt(cm.sha),ghFileAt(c.branch)]);
+    if(!cm.parents||!cm.parents.length)throw new Error("Это самая первая версия, отменять нечего.");
+    const [after,before,now]=await Promise.all([dataAt(cm.sha),dataAt(cm.parents[0].sha),ghFileAt(c.branch)]);
     const nowD=parse(now.text);
-    /* Разделы, которых в старой версии ещё не было (например, руководство операторам), оставляем текущими */
-    const target=JSON.parse(JSON.stringify(old.d)); let keep=[];
-    if(!/\bconst HELP\b/.test(old.text)){target.HELP=nowD.HELP;keep.push("руководство операторам");}
-    if(!/\bconst ABSENT\b/.test(old.text)){target.ABSENT=nowD.ABSENT;keep.push("отпуска врачей");}
-    const newText=serializeData(target);
-    const sm=summarize(nowD,target);
-    box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2>
-    <p><b>«${esc((cm.commit.message||"").split("\n")[0])}»</b></p>
-    ${dirty?`<div class="banner err" style="margin:0 0 10px"><span>В редакторе есть несохранённые правки — после возврата они пропадут. Если они нужны, закройте это окно и нажмите «Скачать data.js».</span></div>`:""}
-    <p>Что изменится на сайте по сравнению с текущей версией:</p>${keep.length?`<p class="help">Не изменится: ${esc(keep.join(", "))} — в той версии этого раздела ещё не было.</p>`:""}<div class="diff">${summaryHtml(sm)}</div>
-    <div class="acts"><button type="button" class="btn primary" id="doRestore">Да, вернуть эту версию</button><button type="button" class="btn" id="backHist">Назад к истории</button></div>`;
+    const {T,rep}=undoChange(before.d,after.d,nowD);
+    const sm=summarize(nowD,T);
+    const conflicts=rep.bad.length?`<div class="banner err" style="margin:10px 0"><span><b>Не получится отменить</b> — это меняли уже после этого сохранения, оставляю как есть:<br>${rep.bad.slice(0,8).map(esc).join("<br>")}${rep.bad.length>8?"<br>…и ещё "+(rep.bad.length-8):""}</span></div>`:"";
+    if(!sm.length){box.innerHTML=`<h2>Нечего отменять</h2><p>Правки из сохранения «${esc(title)}» уже отменены или изменены позже.</p>${conflicts}<div class="acts"><button type="button" class="btn" id="backHist">Назад к истории</button></div>`;$("#backHist").onclick=openHistory;return;}
+    box.innerHTML=`<h2>Отменить сохранение от ${esc(when)}?</h2>
+    <p><b>«${esc(title)}»</b></p>
+    ${dirty?`<div class="banner err" style="margin:0 0 10px"><span>В редакторе есть несохранённые правки — после отмены они пропадут. Если они нужны, закройте окно и сначала сохраните их.</span></div>`:""}
+    <p>Отменится только это (остальное на сайте не изменится):</p><div class="diff">${summaryHtml(sm)}</div>${conflicts}
+    <div class="acts"><button type="button" class="btn primary" id="doUndo">Да, отменить</button><button type="button" class="btn" id="backHist">Назад к истории</button></div>`;
     $("#backHist").onclick=openHistory;
-    $("#doRestore").onclick=async()=>{
-      $("#doRestore").disabled=true;$("#doRestore").textContent="Возвращаю…";
+    $("#doUndo").onclick=async()=>{
+      $("#doUndo").disabled=true;$("#doUndo").textContent="Отменяю…";
       try{
         const url=`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js`;
-        const r=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify({message:"Возврат к версии от "+when,content:b64enc(newText),sha:now.sha,branch:c.branch})});
+        const msg="Отмена правок от "+when+": "+title;
+        const r=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify({message:msg+"\n\n"+autoMessage(nowD,T).split("\n\n").slice(1).join("\n\n"),content:b64enc(serializeData(T)),sha:now.sha,branch:c.branch})});
         if(r.status===401)throw new Error("Ключ не подошёл или срок его действия закончился.");
         if(r.status===403||r.status===404)throw new Error("Ключ не даёт права сохранять.");
         if(r.status===409)throw new Error("Скрипт только что изменился. Откройте историю заново.");
         if(!r.ok)throw new Error("GitHub ответил ошибкой "+r.status+".");
-        closeModal();ls(LS_DRAFT,null);dirty=false;
-        await load();
-        banner("Версия от "+esc(when)+" возвращена. У операторов она появится через 1–2 минуты после обновления страницы.","ok");
-      }catch(e){$("#doRestore").disabled=false;$("#doRestore").textContent="Да, вернуть эту версию";banner(esc(e.message),"err");}
+        closeModal();ls(LS_DRAFT,null);dirty=false;await load();
+        banner("Правки от "+esc(when)+" отменены. У операторов это появится через 1–2 минуты после обновления страницы.","ok");
+      }catch(e){$("#doUndo").disabled=false;$("#doUndo").textContent="Да, отменить";banner(esc(e.message),"err");}
     };
-  }catch(e){box.innerHTML=`<h2>Не получилось</h2><p>${esc(e.message)}</p><div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`;box.querySelector("[data-close]").onclick=closeModal;}
+  }catch(e){box.innerHTML=`<h2>Не получилось</h2><p>${esc(e.message)}</p><div class="acts"><button type="button" class="btn" id="backHist">Назад к истории</button></div>`;$("#backHist").onclick=openHistory;}
 }
 $("#bHist").onclick=openHistory;
 $("#bHelp").onclick=async()=>{
@@ -795,7 +862,7 @@ const TIPS=[
  [".addI","Добавить ситуацию в эту группу."],
  ["#addGrp","Добавить новую группу ситуаций."],
  [".hl-item .hd","Показать, что поменяли в этом сохранении."],
- [".hl-item .hr","Сделать скрипт таким, каким он был сразу после этого сохранения. Перед возвратом редактор покажет, что изменится."]
+ [".hl-item .hr","Убрать только правки из этого сохранения. Всё остальное, в том числе более поздние изменения, останется. Перед отменой редактор покажет, что именно уберётся."]
 ];
 function applyTips(){TIPS.forEach(([sel,t])=>document.querySelectorAll(sel).forEach(el=>{if(!el.dataset.tip)el.dataset.tip=t;}));}
 (function(){
