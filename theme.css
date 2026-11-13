@@ -60,3 +60,5 @@ aside{border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.04)}
 .qnav button[aria-current="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
 .pane h4{font-weight:800}
 .search{border-radius:999px}
+
+a.btn{text-decoration:none;color:var(--ink);display:inline-flex;align-items:center}
