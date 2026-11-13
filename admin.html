@@ -269,7 +269,7 @@ function renderPreview(){
 }
 
 /* ============ блоки: врачи и памятка ============ */
-function blocksHtml(list){return (list||[]).map(b=>{if(b.h!=null)return `<h4>${esc(b.h)}</h4>`;if(b.p!=null)return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");if(b.table){const hd=b.table.head||[];const u=hd.findIndex(x=>/участ/i.test(x));return `<table>${hd.length?`<tr>${hd.map(x=>`<th>${esc(x)}</th>`).join("")}</tr>`:""}${(b.table.rows||[]).map(r=>`<tr>${r.map((c,i)=>`<td${i===u?' class="u"':""}>${fmt(c||"")}</td>`).join("")}</tr>`).join("")}</table>`;}return "";}).join("");}
+function blocksHtml(list){return (list||[]).map(b=>{if(b.h!=null)return `<h4>${esc(b.h)}</h4>`;if(b.p!=null)return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");if(b.table){const hd=b.table.head||[];const u=hd.findIndex(x=>/участ/i.test(x));const tl=hd.findIndex(x=>/телефон|номер/i.test(x));return `<table>${hd.length?`<tr>${hd.map(x=>`<th>${esc(x)}</th>`).join("")}</tr>`:""}${(b.table.rows||[]).map(r=>`<tr>${r.map((c,i)=>`<td${i===u?' class="u"':i===tl?' class="tel"':""}>${i===tl?(c||"").split(/,\s*|\s+\/\s+|;\s*/).filter(Boolean).map(x=>`<span class="nw">${fmt(x)}</span>`).join("<br>"):fmt(c||"")}</td>`).join("")}</tr>`).join("")}</table>`;}return "";}).join("");}
 function renderBlocks(list,title){
   $("#view").innerHTML=`<div class="wide"><div class="panel"><h2>${esc(title)}</h2><p class="help">Заголовок, абзац текста или таблица. Порядок меняется стрелками. Справа — как увидит оператор.</p><div id="blks"></div>
   <div class="addrow"><button type="button" class="btn" data-add="h">+ Заголовок</button><button type="button" class="btn" data-add="p">+ Текст</button><button type="button" class="btn" data-add="t">+ Таблица</button></div></div>
