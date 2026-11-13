@@ -104,7 +104,7 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
   <input id="msg" type="text" placeholder="Что поменяли (необязательно)" aria-label="Что поменяли">
   <button id="bCheck" class="btn" type="button">Проверить</button>
   <button id="bDl" class="btn" type="button">Скачать data.js</button>
-  <button id="bSet" class="btn" type="button">Доступ GitHub</button>
+  <button id="bSet" class="btn" type="button">Ключ доступа</button>
   <button id="bSave" class="btn primary" type="button">Сохранить на сайт</button>
 </header>
 <nav class="atabs" role="tablist">
@@ -147,7 +147,7 @@ async function load(){
       const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js?ref=${encodeURIComponent(c.branch)}`,{headers:{Authorization:"Bearer "+c.token,Accept:"application/vnd.github+json"},cache:"no-store"});
       if(!r.ok) throw new Error(r.status);
       text=b64dec((await r.json()).content);
-    }catch(e){banner("Не удалось загрузить данные через GitHub ("+esc(e.message)+"). Проверьте ключ доступа. Пока открыта версия с сайта.","err");}
+    }catch(e){banner("Ключ доступа не подошёл ("+esc(e.message)+"). Пока открыта версия с сайта — смотреть и править можно, сохранить нельзя. Попросите новый ключ у ответственного за сайт.","err");}
   }
   if(text===null){const r=await fetch("data.js?v="+Date.now(),{cache:"no-store"});text=await r.text();}
   D=parse(text); base=text; dirty=false;
@@ -361,10 +361,10 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
 /* ============ доступ к GitHub ============ */
 function openSettings(lead){
   const c=cfg();
-  modal(`<h2>Доступ к GitHub</h2>${lead?`<p>${esc(lead)}</p>`:""}
-  <p class="help">Ключ хранится только в этом браузере. На чужом компьютере не сохраняйте.</p>
-  <div class="f"><label for="g_t">Ключ доступа (token)</label><input id="g_t" type="password" autocomplete="off" value="${esc(c.token)}" placeholder="github_pat_…"></div>
-  <details><summary>Как получить ключ</summary><ol>
+  modal(`<h2>Ключ доступа</h2>${lead?`<p>${esc(lead)}</p>`:""}
+  <p class="help">Ключ выдаёт ответственный за сайт. Он хранится только в этом браузере. На чужом компьютере не сохраняйте.</p>
+  <div class="f"><label for="g_t">Ключ доступа</label><input id="g_t" type="password" autocomplete="off" value="${esc(c.token)}" placeholder="github_pat_…"></div>
+  <details><summary>Для того, кто выдаёт ключ: как его создать</summary><ol>
   <li>Войдите на github.com в аккаунт владельца репозитория.</li>
   <li>Фото профиля → <b>Settings</b> → внизу слева <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Fine-grained tokens</b> → <b>Generate new token</b>.</li>
   <li>Название — любое, например «Редактор скрипта». Срок — до года.</li>
@@ -381,7 +381,7 @@ $("#bSet").onclick=()=>openSettings();
 /* ============ сохранение ============ */
 async function save(){
   const c=cfg();
-  if(!c.token){openSettings("Чтобы сохранять изменения на сайт, нужен ключ доступа GitHub.");return;}
+  if(!c.token){openSettings("Чтобы сохранять изменения на сайт, нужен ключ доступа. Его выдаёт ответственный за сайт.");return;}
   const pr=validate();if(pr.some(p=>p.hard)){showCheck(pr,"Сначала исправьте ошибки");return;}
   const text=serializeData(D);
   if(text===base){setState("Изменений нет");banner("Сохранять нечего: изменений нет.","ok");return;}
@@ -390,14 +390,14 @@ async function save(){
   $("#bSave").disabled=true;setState("Сохраняю…");
   try{
     const r0=await fetch(url+"?ref="+encodeURIComponent(c.branch),{headers:H,cache:"no-store"});
-    if(r0.status===401)throw new Error("Ключ не подошёл или срок его действия закончился. Создайте новый в «Доступ GitHub».");
-    if(r0.status===404)throw new Error("У ключа нет доступа к репозиторию "+c.owner+"/"+c.repo+".");
+    if(r0.status===401)throw new Error("Ключ не подошёл или срок его действия закончился. Попросите новый ключ у ответственного за сайт.");
+    if(r0.status===404)throw new Error("Ключ не даёт доступа к скрипту. Попросите новый ключ у ответственного за сайт.");
     if(!r0.ok)throw new Error("GitHub ответил ошибкой "+r0.status+".");
     const remote=await r0.json();
     if(b64dec(remote.content)!==base){setState("Есть несохранённые изменения","dirty");banner("Пока вы редактировали, скрипт на сайте изменил кто-то другой. Скачайте свою версию кнопкой «Скачать data.js», обновите страницу и внесите правки заново.","err");return;}
     const msg=$("#msg").value.trim()||"Правка скрипта через редактор";
     const r=await fetch(url,{method:"PUT",headers:{...H,"Content-Type":"application/json"},body:JSON.stringify({message:msg,content:b64enc(text),sha:remote.sha,branch:c.branch})});
-    if(r.status===403||r.status===404)throw new Error("У ключа нет права на запись. При создании ключа выберите Contents: Read and write.");
+    if(r.status===403||r.status===404)throw new Error("Ключ не даёт права сохранять. Попросите новый ключ у ответственного за сайт (при создании нужно выбрать Contents: Read and write).");
     if(r.status===409)throw new Error("Скрипт на сайте изменился. Обновите страницу.");
     if(!r.ok)throw new Error("GitHub ответил ошибкой "+r.status+".");
     base=text;dirty=false;ls(LS_DRAFT,null);$("#msg").value="";
