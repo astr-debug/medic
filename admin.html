@@ -107,6 +107,11 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
 .diff{margin-top:8px;font-size:13.5px}
 .diff ul{margin:4px 0;padding-left:20px}
 .diff .add{color:var(--say-line)} .diff .del{color:var(--danger)}
+
+/* Подсказки при наведении */
+#tip{position:fixed;z-index:50;max-width:320px;padding:8px 11px;border-radius:9px;background:#1c1f1d;color:#fff;font:500 12.5px/1.45 var(--body);box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .12s}
+#tip.on{opacity:1}
+label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:underline dotted color-mix(in srgb,var(--muted) 60%,transparent);text-underline-offset:3px}
 .prevpane{max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:70px}
 </style>
 </head>
@@ -540,6 +545,81 @@ $("#bDl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObje
 function grow(t){t.style.height="auto";t.style.height=(t.scrollHeight+2)+"px";}
 document.addEventListener("input",e=>{if(e.target.tagName==="TEXTAREA")grow(e.target);});
 new MutationObserver(()=>{clearTimeout(grow.t);grow.t=setTimeout(()=>document.querySelectorAll("#view textarea").forEach(grow),0);}).observe(document.getElementById("view"),{childList:true,subtree:true});
+
+/* ============ подсказки при наведении ============ */
+const TIPS=[
+ ["#state","Есть ли правки, которые ещё не отправлены операторам."],
+ ["#bCheck","Ищет ошибки: кнопки, которые ведут на несуществующий шаг, шаги без кнопок, шаги, на которые нельзя попасть. Ничего не меняет."],
+ ["#bDl","Скачивает весь скрипт одним файлом на этот компьютер — резервная копия. На сайт ничего не отправляет."],
+ ["#bHist","Прошлые сохранения: что в них меняли, и возврат к старой версии."],
+ ["#bSet","Ключ, без которого нельзя сохранять на сайт. Вставляется один раз на этом компьютере, его выдаёт ответственный за сайт."],
+ ["#bSave","Отправляет все правки операторам. Они увидят их через 1–2 минуты после обновления страницы."],
+ ['.atabs [data-v="steps"]',"Карточки звонка: фразы для пациента, подсказки оператору и кнопки «что дальше»."],
+ ['.atabs [data-v="p5"]',"Правая вкладка «Врачи» у операторов П5: врачи по блокам, полезные номера, телефоны участков."],
+ ['.atabs [data-v="p6"]',"Правая вкладка «Врачи» у операторов П6."],
+ ['.atabs [data-v="odd"]',"Правая вкладка «Нестандартное»: ситуации, которых нет в шагах, и что делать."],
+ ['.atabs [data-v="memo"]',"Правая вкладка «Памятка»: общие правила, возраст, коды переводов."],
+ ['.atabs [data-v="help"]',"Страница, которую операторы открывают кнопкой «?» в скрипте."],
+ ["#lq","Ищет по названиям шагов и по тексту фраз."],
+ ["#addStep","Создаёт пустой шаг. Чтобы оператор мог на него попасть, на него должна вести кнопка из другого шага — поэтому удобнее «+ Кнопка на новый шаг»."],
+ ['label[for="f_t"], #f_t',"Заголовок карточки у оператора и название шага в списке слева."],
+ ['label[for="f_k"], #f_k',"Группа в списке слева и мелкая подпись над заголовком у оператора, например «Диагностика». Можно выбрать существующую или вписать новую."],
+ ['label[for="f_d"], #f_d',"Карточка с красной рамкой — для экстренных ситуаций и оскорблений, чтобы оператор сразу заметил."],
+ ['label[for="s_a"], #s_a',"Фраза одинаковая для П5 и П6. Оператор читает её пациенту дословно."],
+ ['label[for="s_p5"], #s_p5',"Видят только операторы П5. Показывается после текста «Для всех», если он есть."],
+ ['label[for="s_p6"], #s_p6',"Видят только операторы П6. Показывается после текста «Для всех», если он есть."],
+ ['label[for="n_a"], #n_a',"Подсказка для оператора, пациенту её не читают. Одинаковая для П5 и П6."],
+ ['label[for="n_p5"], #n_p5',"Подсказка только для операторов П5."],
+ ['label[for="n_p6"], #n_p6',"Подсказка только для операторов П6."],
+ [".ob .lab","Текст на кнопке: что ответил пациент или что делаем дальше."],
+ [".ob .tgt","Шаг, который откроется у оператора после нажатия этой кнопки."],
+ [".ob .shw","Если кнопка нужна только одной поликлинике — у другой её не будет."],
+ [".ob .sub","Мелкий серый текст под надписью кнопки — уточнение. Можно оставить пустым."],
+ [".ob .lin","Нажатие этой кнопки выбирает поликлинику для всего звонка. Нужно только на шаге выбора П5/П6, в остальных оставьте «Линию не меняет»."],
+ [".ob .up, .blk .up, .oddi .up, .grpbox .gup","Поднять выше."],
+ [".ob .dn, .blk .dn, .oddi .dn, .grpbox .gdn","Опустить ниже."],
+ [".ob .jmp","Открыть для редактирования шаг, куда ведёт эта кнопка."],
+ [".ob .del","Удалить эту кнопку. Сам шаг, куда она вела, останется."],
+ ["#addOpt","Добавить кнопку, которая ведёт на уже существующий шаг."],
+ ["#addOptNew","Создать новый шаг и сразу кнопку на него — так добавляется новая ветка звонка."],
+ ["#dup","Сделать копию этого шага, чтобы не набирать похожий заново. Копия появится в списке с пометкой «(копия)»."],
+ ["#delStep","Удалить шаг. Кнопки, которые на него вели, тоже удалятся — редактор покажет, какие."],
+ [".pvbar .seg","Посмотреть шаг глазами оператора П5, П6 или до выбора поликлиники."],
+ ["#spv .opt","Нажмите, чтобы перейти к редактированию этого шага."],
+ ['[data-add="h"]',"Заголовок раздела. Во вкладке «Врачи» он станет кнопкой быстрой навигации, в руководстве — пунктом оглавления."],
+ ['[data-add="p"]',"Обычный абзац текста. **Жирный** — в двух звёздочках."],
+ ['[data-add="l"]',"Список с точками. Каждый пункт — с новой строки."],
+ ['[data-add="tip"]',"Зелёная рамка — совет или полезная подсказка."],
+ ['[data-add="warn"]',"Жёлтая рамка — важное предупреждение."],
+ ['[data-add="t"]',"Таблица, например врачи или номера телефонов."],
+ [".blk .del","Удалить этот блок целиком."],
+ [".radd","Добавить пустую строку в конец таблицы."],
+ [".cadd","Добавить столбец справа."],
+ [".cdel","Удалить последний столбец справа вместе с его содержимым."],
+ [".rdel","Удалить эту строку таблицы."],
+ [".grpbox .gname","Название группы во вкладке «Нестандартное»."],
+ [".oddi .q","Ситуация — коротко, как спросит или опишет пациент."],
+ [".oddi .a","Что делает оператор. Фразы для пациента пишите в «ёлочках»."],
+ [".oddi .del","Удалить эту ситуацию."],
+ [".grpbox .gdel","Удалить группу со всеми ситуациями."],
+ [".addI","Добавить ситуацию в эту группу."],
+ ["#addGrp","Добавить новую группу ситуаций."],
+ [".hl-item .hd","Показать, что поменяли в этом сохранении."],
+ [".hl-item .hr","Сделать скрипт таким, каким он был сразу после этого сохранения. Перед возвратом редактор покажет, что изменится."]
+];
+function applyTips(){TIPS.forEach(([sel,t])=>document.querySelectorAll(sel).forEach(el=>{if(!el.dataset.tip)el.dataset.tip=t;}));}
+(function(){
+  const tip=document.createElement("div");tip.id="tip";tip.setAttribute("role","tooltip");document.body.appendChild(tip);
+  let cur=null,timer=null;
+  const show=el=>{cur=el;tip.textContent=el.dataset.tip;tip.classList.add("on");const r=el.getBoundingClientRect();const tw=tip.offsetWidth,th=tip.offsetHeight;
+    let x=Math.min(Math.max(8,r.left+r.width/2-tw/2),innerWidth-tw-8);let y=r.bottom+8;if(y+th>innerHeight-8)y=r.top-th-8;tip.style.left=x+"px";tip.style.top=y+"px";};
+  const hide=()=>{cur=null;clearTimeout(timer);tip.classList.remove("on");};
+  document.addEventListener("mouseover",e=>{const el=e.target.closest("[data-tip]");if(el===cur)return;hide();if(el)timer=setTimeout(()=>show(el),350);});
+  document.addEventListener("focusin",e=>{const el=e.target.closest("[data-tip]");hide();if(el&&e.target.matches(":focus-visible"))show(el);});
+  document.addEventListener("focusout",hide);document.addEventListener("scroll",hide,true);document.addEventListener("keydown",e=>{if(e.key==="Escape")hide();});
+  new MutationObserver(()=>{clearTimeout(applyTips.t);applyTips.t=setTimeout(applyTips,30);}).observe(document.body,{childList:true,subtree:true});
+  applyTips();
+})();
 load().catch(e=>{setState("Ошибка","err");$("#view").innerHTML=`<div class="banner err" style="margin:20px"><span>Не удалось загрузить данные скрипта: ${esc(e.message)}</span></div>`;});
 </script>
 </body>
