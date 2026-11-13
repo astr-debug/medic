@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Редактор скрипта: инструкция</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+/* Руководство: оглавление слева, текст справа; на телефоне — одной колонкой. */
+.top .brand{margin-right:auto}
+.doc{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;max-width:1100px;margin:0 auto;padding:24px 20px 60px}
+@media (max-width:860px){.doc{grid-template-columns:1fr}}
+.toc{position:sticky;top:90px;align-self:start;font-size:13.5px}
+@media (max-width:860px){.toc{position:static}}
+.toc p{font:700 12px var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 6px}
+.toc p:first-child{margin-top:0}
+.toc a{display:block;padding:4px 10px;border-radius:8px;color:var(--ink);text-decoration:none}
+.toc a:hover{background:var(--surface)}
+article{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 32px;max-width:760px}
+@media (max-width:600px){article{padding:20px}}
+article h2{font:800 24px/1.25 var(--display);margin:40px 0 6px;scroll-margin-top:90px;text-wrap:balance}
+article h2:first-child{margin-top:0}
+article h2 + .lead{color:var(--muted);margin:0 0 18px}
+article h3{font:700 17px/1.3 var(--display);margin:28px 0 8px;scroll-margin-top:90px}
+article p,article li{line-height:1.6;max-width:68ch}
+article ol,article ul{padding-left:22px}
+article li{margin-bottom:6px}
+kbd{display:inline-block;font:600 12px var(--display);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:var(--bg)}
+.tip{border-left:4px solid var(--say-line);background:var(--say-bg);border-radius:10px;padding:10px 14px;margin:12px 0}
+.warn{border-left:4px solid var(--note-line);background:var(--note-bg);border-radius:10px;padding:10px 14px;margin:12px 0}
+.ui{font-weight:700}
+.sample{display:inline-block;padding:0 6px;border-radius:5px;font-size:13px;font-weight:700}
+.sample.g{background:var(--say-bg);color:var(--say-line)} .sample.y{background:var(--note-bg);color:var(--note-line)} .sample.r{background:var(--danger-soft);color:var(--danger)}
+hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span>Инструкция к редактору<small><span class="zh">«Жемчужина»</span> · бюджет П5 и П6</small></span></div>
+  <a class="btn" href="admin.html">Открыть редактор</a>
+  <a class="btn" href="./">Открыть скрипт</a>
+</header>
+
+<div class="doc">
+<nav class="toc" aria-label="Содержание">
+  <p>Руководителю</p>
+  <a href="#admin-open">Первый вход и ключ</a>
+  <a href="#admin-step">Изменить фразу</a>
+  <a href="#admin-buttons">Кнопки и ветки</a>
+  <a href="#admin-docs">Врачи и номера</a>
+  <a href="#admin-other">Нестандартное и памятка</a>
+  <a href="#admin-save">Сохранение</a>
+  <a href="#admin-errors">Ошибки и история</a>
+</nav>
+
+<article>
+
+<h2 id="admin-open">Первый вход и ключ</h2>
+<p class="lead">Редактор открывается по адресу <b>astr-debug.github.io/medic/admin.html</b>. Операторам эта ссылка не нужна.</p>
+<p>Править и смотреть можно сразу. Чтобы сохранять изменения на сайт, на вашем компьютере один раз вставляется ключ доступа GitHub:</p>
+<ol>
+  <li>Нажмите <span class="ui">Доступ GitHub</span>.</li>
+  <li>Вставьте ключ, который вам передали (начинается с <b>github_pat_</b>), и нажмите <span class="ui">Сохранить</span>. Там же есть инструкция, как создать новый ключ.</li>
+</ol>
+<div class="warn">Ключ — как пароль. Он хранится только в этом браузере. Не вставляйте его на чужих компьютерах и не пересылайте в общие чаты. Когда закончится срок ключа, сохранение выдаст ошибку «Ключ не подошёл» — нужно создать новый.</div>
+
+<h3 id="admin-step">Изменить фразу или подсказку</h3>
+<ol>
+  <li>Вкладка <span class="ui">Шаги скрипта</span>. Найдите шаг в списке слева — по разделам или через поиск над списком (ищет и по названиям, и по тексту фраз).</li>
+  <li>Исправьте текст в форме по центру:
+    <ul>
+      <li><span class="ui">Скажите пациенту</span> — то, что оператор читает дословно.</li>
+      <li><span class="ui">Подсказка оператору</span> — пояснения только для оператора.</li>
+      <li>В каждом есть поля <span class="ui">Для всех</span>, <span class="ui">Только П5</span>, <span class="ui">Только П6</span>. Одинаковый текст — пишите в «Для всех». Разный — в поля П5 и П6, оператор увидит только своё.</li>
+      <li>Текст, который оператор подставляет сам, берите в квадратные скобки: [дата, время]. Новая строка — новый абзац.</li>
+    </ul>
+  </li>
+  <li>Справа — предпросмотр, как увидит оператор. Переключайте П5 / П6, чтобы проверить обе линии.</li>
+</ol>
+
+<h3 id="admin-buttons">Кнопки и новые ветки</h3>
+<p>Кнопки внизу формы — это варианты, которые видит оператор. У каждой кнопки:</p>
+<ul>
+  <li><b>Надпись</b> — что написано на кнопке.</li>
+  <li><b>Куда ведёт</b> — шаг, который откроется. Особые варианты: «Новый звонок (в начало)» и «Открыть вкладку Нестандартное».</li>
+  <li><b>Кому показывать</b> — всем, только П5 или только П6.</li>
+  <li><b>Пояснение</b> — мелкий текст под надписью (необязательно).</li>
+  <li>Стрелки <b>↑ ↓</b> меняют порядок, <b>→</b> открывает шаг, куда ведёт кнопка, <b>✕</b> удаляет кнопку.</li>
+</ul>
+<p><b>Добавить новую ветку:</b> на шаге, откуда она должна начинаться, нажмите <span class="ui">+ Кнопка на новый шаг</span>. Новый шаг создастся и откроется — напишите название, фразы и его кнопки. Обычно последний шаг ветки ведёт на «Ещё вопросы?».</p>
+<div class="tip">Пример: нужна новая тема звонка. Откройте шаг «С чем звонит пациент» → <span class="ui">+ Кнопка на новый шаг</span> → назовите кнопку и заполните новый шаг.</div>
+<p><span class="ui">Дублировать шаг</span> — сделать копию, чтобы не набирать похожий шаг заново. <span class="ui">Удалить шаг</span> — редактор предупредит, какие кнопки вели на этот шаг, они тоже удалятся.</p>
+<p>Под формой видно, из каких шагов сюда ведут кнопки. Если написано «Сюда не ведёт ни одна кнопка» — оператор не сможет попасть на этот шаг.</p>
+
+<h3 id="admin-docs">Врачи и номера</h3>
+<p>Вкладки <span class="ui">Врачи П5</span> и <span class="ui">Врачи П6</span> — это справочник справа у операторов. Он состоит из блоков: заголовок, текст, таблица.</p>
+<ul>
+  <li>Таблицы правятся прямо в ячейках. <span class="ui">+ Строка</span>, <span class="ui">+ Столбец</span>, <b>✕</b> у строки — удалить.</li>
+  <li>Пришёл новый врач, врач ушёл в отпуск, поменялся номер — исправьте строку.</li>
+  <li>Каждый заголовок автоматически становится кнопкой быстрой навигации у операторов.</li>
+  <li>В «Телефонах участков П5» строки с пометкой «уточнить» — номера, которые расходились в старой базе. Проверьте их и уберите пометку.</li>
+</ul>
+
+<h3 id="admin-other">Нестандартное и памятка</h3>
+<p><span class="ui">Нестандартное</span>: ситуация — коротко, как спросит пациент; «что делаем» — ответ оператору. Фразы для пациента пишите в «ёлочках». <span class="ui">+ Ситуация</span> добавляет строку в группу, <span class="ui">+ Группа</span> — новую группу.</p>
+<p><span class="ui">Памятка</span> устроена так же, как справочник врачей: заголовки, текст, таблицы.</p>
+
+<h3 id="admin-save">Сохранение</h3>
+<ol>
+  <li>Нажмите <span class="ui">Проверить</span>: редактор покажет, если какая-то кнопка ведёт в пустоту или у шага нет кнопок.</li>
+  <li>В поле <span class="ui">Что поменяли</span> коротко напишите, что изменили, например «Новый номер Жазиры». Это попадёт в историю изменений.</li>
+  <li>Нажмите <span class="ui">Сохранить на сайт</span>. Появится «Сохранено».</li>
+  <li>Через 1–2 минуты операторы увидят изменения, обновив страницу.</li>
+</ol>
+<div class="tip">Пока не сохранили, вверху горит «Есть несохранённые изменения». Если случайно закрыть вкладку, при следующем открытии редактор предложит восстановить черновик.</div>
+
+<h3 id="admin-errors">Ошибки и история изменений</h3>
+<ul>
+  <li><b>«Ключ не подошёл или срок закончился»</b> — создайте новый ключ (<span class="ui">Доступ GitHub</span> → инструкция).</li>
+  <li><b>«У ключа нет права на запись»</b> — при создании ключа нужно выбрать Contents: Read and write.</li>
+  <li><b>«Скрипт на сайте изменил кто-то другой»</b> — пока вы правили, кто-то уже сохранил. Нажмите <span class="ui">Скачать data.js</span> (сохранит вашу версию на компьютер), обновите страницу и внесите правки заново.</li>
+  <li><b>История</b> всех сохранений: <a href="https://github.com/astr-debug/medic/commits/main">github.com/astr-debug/medic/commits/main</a>. Любую прошлую версию можно вернуть.</li>
+  <li><span class="ui">Скачать data.js</span> — резервная копия всего скрипта одним файлом. Полезно делать перед большими изменениями.</li>
+</ul>
+</article>
+</div>
+</body>
+</html>
