@@ -117,6 +117,10 @@ label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:unde
 .add2 .btn{padding:8px 6px;font-size:13.5px}
 .abs-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
 .abs-top .sw{position:relative;flex:1 1 260px}
+.abs-gsr{width:min(680px,100%)}
+.abs-gsr .absbadge{margin-top:0}
+.abs-gsr .gi .act{display:none}
+.abs-gsr .gi[aria-selected="true"] .act,.abs-gsr .gi:hover .act{display:block}
 .abs-top .search{width:100%;margin:0}
 .abs-sug{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:12;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);max-height:340px;overflow:auto;padding:6px}
 .abs-sug button{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink)}
@@ -645,7 +649,7 @@ let absQ="";
 function renderAbs(){
   $("#view").innerHTML=`<div style="padding:16px 20px;max-width:1300px"><div class="panel"><h2>Отпуска врачей</h2>
   <p class="help">Операторы увидят врача во вкладке «Врачи» в блоке «Сейчас нет на работе» и с пометкой в таблице — с первого дня и за 7 дней заранее как «скоро». После даты «по» информация у операторов исчезает сама, а закончившиеся строки удаляются отсюда при следующем сохранении.</p>
-  <div class="abs-top"><div class="sw"><input class="search" id="absq" type="search" autocomplete="off" placeholder="Начните вводить фамилию врача" value="${esc(absQ)}" aria-label="Найти врача"><div class="abs-sug" id="absSug" hidden></div></div><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
+  <div class="abs-top"><div class="sw"><input class="search" id="absq" type="search" autocomplete="off" placeholder="Начните вводить фамилию врача" value="${esc(absQ)}" aria-label="Найти врача"><div class="gsr abs-gsr" id="absSug" role="listbox" hidden></div></div><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
   <datalist id="dl_p5">${doctorNames("p5").map(n=>`<option value="${esc(n)}">`).join("")}</datalist><datalist id="dl_p6">${doctorNames("p6").map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
   <div id="absList"></div></div></div>`;
   const draw=(focusIdx,field)=>{
@@ -687,16 +691,21 @@ function renderAbs(){
   let sugSel=0,sugItems=[];
   const sug=$("#absSug"), inp=$("#absq");
   const statusOf=d=>{const r=D.ABSENT.find(x=>x.who===d.name&&x.line===d.line&&absStatus(x)!=="past");if(!r)return "";const st=absStatus(r);return st==="now"?"сейчас нет до "+fmtDay(r.to).slice(0,5):st==="soon"?"с "+fmtDay(r.from).slice(0,5):"";};
-  const drawSug=()=>{const q=nrm(inp.value.trim());if(!q){sug.hidden=true;return;}
-    sugItems=allDocs.filter(d=>nrm(d.name).includes(q)).slice(0,12);sugSel=0;
-    sug.innerHTML=sugItems.length?`<p class="hint2">Выберите врача — добавится строка отсутствия</p>`+sugItems.map((d,i)=>`<button type="button" data-i="${i}" aria-selected="${i===0}"><b>${esc(d.name)}</b><small>${d.line==="p6"?"П6":"П5"} · ${esc(d.sec.replace(/\s*\([^)]*\)/g,""))}</small><span class="st">${esc(statusOf(d))}</span></button>`).join(""):`<p class="hint2">Такого врача нет в таблицах вкладок «Врачи П5/П6». Можно добавить строку и вписать фамилию вручную.</p>`;
+  const hlq=(txt,q)=>{const t=esc(txt);if(!q)return t;const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/е/g,"[её]")+")","gi");return t.replace(re,"<mark>$1</mark>");};
+  const drawSug=()=>{const raw=inp.value.trim();const q=nrm(raw);if(!q){sug.hidden=true;return;}
+    const found=allDocs.filter(d=>nrm(d.name).includes(q)).sort((a,b)=>(nrm(a.name).indexOf(q)-nrm(b.name).indexOf(q))||a.line.localeCompare(b.line)||a.name.localeCompare(b.name,"ru")).slice(0,20);
+    sugSel=0;sugItems=[];let h="";
+    ["p5","p6"].forEach(l=>{const g=found.filter(d=>d.line===l);if(!g.length)return;h+=`<p class="gh">Врачи ${l==="p5"?"П5":"П6"}</p>`;
+      g.forEach(d=>{const i=sugItems.push(d)-1;const st=statusOf(d);
+        h+=`<button type="button" class="gi" role="option" data-i="${i}" aria-selected="${i===0}"><b>${hlq(d.name,raw)}</b><span class="tag">${esc(d.sec.replace(/\s*\([^)]*\)/g,""))}</span>${st?`<small><span class="absbadge ${st.startsWith("сейчас")?"now":"soon"}">${esc(st)}</span></small>`:""}<small class="act">Enter или клик — добавить отпуск или больничный</small></button>`;});});
+    sug.innerHTML=h||`<p class="empty">Врача «${esc(raw)}» нет в таблицах вкладок «Врачи П5/П6». Можно нажать «+ Добавить отсутствие» и вписать фамилию вручную.</p>`;
     sug.hidden=false;
-    sug.querySelectorAll("button").forEach(b=>{b.onmousedown=e=>e.preventDefault();b.onclick=()=>pickDoc(sugItems[+b.dataset.i]);});};
+    sug.querySelectorAll(".gi").forEach(b=>{b.onmousedown=e=>e.preventDefault();b.onclick=()=>pickDoc(sugItems[+b.dataset.i]);});};
   const pickDoc=d=>{if(!d)return;const t=todayYmd();D.ABSENT.push({who:d.name,line:d.line,kind:"Отпуск",from:t,to:""});markDirty();sug.hidden=true;absQ="";inp.value="";draw(D.ABSENT.length-1,".to");};
   inp.oninput=e=>{absQ=e.target.value;draw();drawSug();};
   inp.onfocus=drawSug;
   inp.onblur=()=>setTimeout(()=>{sug.hidden=true;},150);
-  inp.onkeydown=e=>{const btns=[...sug.querySelectorAll("button")];
+  inp.onkeydown=e=>{const btns=[...sug.querySelectorAll(".gi")];
     if(e.key==="ArrowDown"&&btns.length){e.preventDefault();sugSel=(sugSel+1)%btns.length;}
     else if(e.key==="ArrowUp"&&btns.length){e.preventDefault();sugSel=(sugSel-1+btns.length)%btns.length;}
     else if(e.key==="Enter"){e.preventDefault();if(sugItems.length)pickDoc(sugItems[sugSel]);return;}
