@@ -94,6 +94,18 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
 .modal li{margin-bottom:4px;font-size:14px}
 .chk li button{border:0;background:none;color:var(--accent);cursor:pointer;text-decoration:underline;padding:0;font:inherit}
 .chk .hard{color:var(--danger)}
+.modal .panel.wide-m{max-width:860px}
+.hl-list{display:grid;gap:8px;margin:10px 0}
+.hl-item{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--bg)}
+.hl-top{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.hl-top b{font-weight:700}
+.hl-top .when{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.hl-top .acts2{margin-left:auto;display:flex;gap:6px}
+.hl-top .acts2 .btn{padding:5px 12px;font-size:13px}
+.hl-cur{font:600 11.5px var(--display);color:var(--say-line);background:var(--say-bg);border-radius:999px;padding:2px 8px}
+.diff{margin-top:8px;font-size:13.5px}
+.diff ul{margin:4px 0;padding-left:20px}
+.diff .add{color:var(--say-line)} .diff .del{color:var(--danger)}
 .prevpane{max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:70px}
 </style>
 </head>
@@ -104,6 +116,7 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
   <input id="msg" type="text" placeholder="Что поменяли (необязательно)" aria-label="Что поменяли">
   <button id="bCheck" class="btn" type="button">Проверить</button>
   <button id="bDl" class="btn" type="button">Скачать data.js</button>
+  <button id="bHist" class="btn" type="button">История</button>
   <button id="bSet" class="btn" type="button">Ключ доступа</button>
   <button id="bSave" class="btn primary" type="button">Сохранить на сайт</button>
 </header>
@@ -355,7 +368,7 @@ function showCheck(pr,title){
 $("#bCheck").onclick=()=>showCheck(validate());
 
 /* ============ модальное окно ============ */
-function modal(html){$("#modalBody").innerHTML=html;$("#modal").classList.add("open");$("#modalBody").querySelectorAll("[data-close]").forEach(b=>b.onclick=closeModal);const f=$("#modalBody").querySelector("input,button");if(f)f.focus();}
+function modal(html){$("#modalBody").classList.remove("wide-m");$("#modalBody").innerHTML=html;$("#modal").classList.add("open");$("#modalBody").querySelectorAll("[data-close]").forEach(b=>b.onclick=closeModal);const f=$("#modalBody").querySelector("input,button");if(f)f.focus();}
 function closeModal(){$("#modal").classList.remove("open");}
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal();});
@@ -379,6 +392,93 @@ function openSettings(lead){
   $("#g_del").onclick=()=>{const c2=cfg();ls(LS_GH,JSON.stringify({owner:c2.owner,repo:c2.repo,branch:c2.branch}));closeModal();banner("Ключ удалён из браузера.","ok");};
 }
 $("#bSet").onclick=()=>openSettings();
+
+/* ============ история сохранений ============ */
+function ghHeaders(){const c=cfg();const H={Accept:"application/vnd.github+json"};if(c.token)H.Authorization="Bearer "+c.token;return H;}
+async function ghFileAt(ref){const c=cfg();const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js?ref=${encodeURIComponent(ref)}`,{headers:ghHeaders(),cache:"no-store"});if(!r.ok)throw new Error("GitHub ответил "+r.status);const j=await r.json();return {text:b64dec(j.content),sha:j.sha};}
+const verCache={};
+async function dataAt(ref){if(!verCache[ref])verCache[ref]=ghFileAt(ref).then(f=>({text:f.text,d:parse(f.text)}));return verCache[ref];}
+/* Что изменилось между двумя версиями — по-человечески */
+function summarize(a,b){
+  const out=[];const t=st=>(st&&st.t)||"(без названия)";
+  const A=a.S||{},B=b.S||{};
+  const added=Object.keys(B).filter(k=>!A[k]).map(k=>t(B[k]));
+  const removed=Object.keys(A).filter(k=>!B[k]).map(k=>t(A[k]));
+  const changed=Object.keys(B).filter(k=>A[k]&&JSON.stringify(A[k])!==JSON.stringify(B[k])).map(k=>t(B[k]));
+  if(changed.length)out.push(["Изменены шаги",changed,""]);
+  if(added.length)out.push(["Добавлены шаги",added,"add"]);
+  if(removed.length)out.push(["Удалены шаги",removed,"del"]);
+  const rows=list=>{const r=[];let h="";(list||[]).forEach(x=>{if(x.h!=null){h=x.h;r.push("Заголовок: "+x.h);}else if(x.p!=null)r.push(x.p);else if(x.list!=null)x.list.split("\n").forEach(l=>l.trim()&&r.push(l));else if(x.tip!=null)r.push(x.tip);else if(x.warn!=null)r.push(x.warn);else if(x.table)(x.table.rows||[]).forEach(row=>r.push((h?h+": ":"")+row.filter(Boolean).join(" · ")));});return r.map(x=>String(x).replace(/\*\*/g,""));};
+  const blk=(name,la,lb)=>{const ra=rows(la),rb=rows(lb);const sa=new Set(ra),sb=new Set(rb);const plus=rb.filter(x=>!sa.has(x)),minus=ra.filter(x=>!sb.has(x));
+    if(plus.length||minus.length){const items=[...minus.slice(0,6).map(x=>["del","было: "+x]),...plus.slice(0,6).map(x=>["add","стало: "+x])];const more=Math.max(0,minus.length-6)+Math.max(0,plus.length-6);out.push([name,items,"mix",more]);}
+    else if(JSON.stringify(la)!==JSON.stringify(lb))out.push([name,["изменён порядок"],""]);};
+  blk("Врачи П5",(a.DOCTORS||{}).p5,(b.DOCTORS||{}).p5);
+  blk("Врачи П6",(a.DOCTORS||{}).p6,(b.DOCTORS||{}).p6);
+  const odd=o=>(o||[]).map(([g,items])=>({h:g,list:items.map(([q,x])=>q+" — "+x).join("\n")}));
+  blk("Нестандартное",odd(a.ODD),odd(b.ODD));
+  blk("Памятка",a.MEMO,b.MEMO);
+  blk("Руководство операторам",a.HELP||[],b.HELP||[]);
+  return out;
+}
+function summaryHtml(sm){
+  if(!sm.length)return `<p class="help" style="margin:0">Содержимое не отличается.</p>`;
+  return sm.map(([name,items,kind,more])=>`<div><b>${esc(name)}</b><ul>${items.map(x=>Array.isArray(x)?`<li class="${x[0]}">${esc(x[1])}</li>`:`<li class="${kind==="add"?"add":kind==="del"?"del":""}">${esc(x)}</li>`).join("")}${more?`<li>…и ещё ${more}</li>`:""}</ul></div>`).join("");
+}
+let histList=[];
+async function openHistory(){
+  modal(`<h2>История сохранений</h2><p class="help">Загружаю…</p>`);$("#modalBody").classList.add("wide-m");
+  const c=cfg();
+  try{
+    const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/commits?path=data.js&sha=${encodeURIComponent(c.branch)}&per_page=30`,{headers:ghHeaders(),cache:"no-store"});
+    if(!r.ok)throw new Error("GitHub ответил "+r.status);
+    histList=await r.json();
+  }catch(e){modal(`<h2>История сохранений</h2><p>Не удалось загрузить историю: ${esc(e.message)}. Проверьте интернет или ключ доступа.</p><div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`);$("#modalBody").classList.add("wide-m");return;}
+  const fmtD=iso=>new Date(iso).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  modal(`<h2>История сохранений</h2>
+  <p class="help">Последние 30 сохранений, сверху новые. «Что изменилось» — что поменяли в этом сохранении. «Вернуть эту версию» — скрипт станет таким, каким был сразу после этого сохранения; всё, что меняли позже, отменится (это тоже запишется в историю, так что возврат можно отменить).</p>
+  <div class="hl-list">${histList.map((cm,i)=>`<div class="hl-item" data-i="${i}"><div class="hl-top"><b>${esc((cm.commit.message||"").split("\n")[0])}</b><span class="when">${fmtD(cm.commit.committer.date)}</span>${i===0?`<span class="hl-cur">сейчас на сайте</span>`:""}
+    <span class="acts2"><button type="button" class="btn hd">Что изменилось</button>${i>0?`<button type="button" class="btn hr">Вернуть эту версию</button>`:""}</span></div><div class="diff" hidden></div></div>`).join("")}</div>
+  <div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`);
+  $("#modalBody").classList.add("wide-m");
+  $("#modalBody").querySelectorAll(".hl-item").forEach(el=>{const i=+el.dataset.i;const cm=histList[i];const box=el.querySelector(".diff");
+    el.querySelector(".hd").onclick=async()=>{if(!box.hidden){box.hidden=true;return;}box.hidden=false;box.innerHTML=`<p class="help" style="margin:0">Сравниваю…</p>`;
+      try{const cur=await dataAt(cm.sha);const par=cm.parents&&cm.parents[0]?await dataAt(cm.parents[0].sha).catch(()=>null):null;
+        box.innerHTML=par?summaryHtml(summarize(par.d,cur.d)):`<p class="help" style="margin:0">Это первая версия скрипта.</p>`;}catch(e){box.innerHTML=`<p class="help" style="margin:0">Не удалось сравнить: ${esc(e.message)}</p>`;}};
+    const rb=el.querySelector(".hr");if(rb)rb.onclick=()=>restoreVersion(cm,fmtD(cm.commit.committer.date));
+  });
+}
+async function restoreVersion(cm,when){
+  const c=cfg();
+  if(!c.token){openSettings("Чтобы вернуть версию, нужен ключ доступа.");return;}
+  const box=$("#modalBody");
+  box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2><p class="help">Загружаю и сравниваю с тем, что сейчас на сайте…</p>`;
+  try{
+    const [old,now]=await Promise.all([dataAt(cm.sha),ghFileAt(c.branch)]);
+    const sm=summarize(parse(now.text),old.d);
+    box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2>
+    <p><b>«${esc((cm.commit.message||"").split("\n")[0])}»</b></p>
+    ${dirty?`<div class="banner err" style="margin:0 0 10px"><span>В редакторе есть несохранённые правки — после возврата они пропадут. Если они нужны, закройте это окно и нажмите «Скачать data.js».</span></div>`:""}
+    <p>Что изменится на сайте по сравнению с текущей версией:</p><div class="diff">${summaryHtml(sm)}</div>
+    <div class="acts"><button type="button" class="btn primary" id="doRestore">Да, вернуть эту версию</button><button type="button" class="btn" id="backHist">Назад к истории</button></div>`;
+    $("#backHist").onclick=openHistory;
+    $("#doRestore").onclick=async()=>{
+      $("#doRestore").disabled=true;$("#doRestore").textContent="Возвращаю…";
+      try{
+        const url=`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js`;
+        const r=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify({message:"Возврат к версии от "+when,content:b64enc(old.text),sha:now.sha,branch:c.branch})});
+        if(r.status===401)throw new Error("Ключ не подошёл или срок его действия закончился.");
+        if(r.status===403||r.status===404)throw new Error("Ключ не даёт права сохранять.");
+        if(r.status===409)throw new Error("Скрипт только что изменился. Откройте историю заново.");
+        if(!r.ok)throw new Error("GitHub ответил ошибкой "+r.status+".");
+        closeModal();ls(LS_DRAFT,null);dirty=false;
+        await load();
+        banner("Версия от "+esc(when)+" возвращена. У операторов она появится через 1–2 минуты после обновления страницы.","ok");
+      }catch(e){$("#doRestore").disabled=false;$("#doRestore").textContent="Да, вернуть эту версию";banner(esc(e.message),"err");}
+    };
+  }catch(e){box.innerHTML=`<h2>Не получилось</h2><p>${esc(e.message)}</p><div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`;box.querySelector("[data-close]").onclick=closeModal;}
+}
+$("#bHist").onclick=openHistory;
+
 
 /* ============ сохранение ============ */
 async function save(){
