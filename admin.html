@@ -112,6 +112,8 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
 #tip{position:fixed;z-index:50;max-width:320px;padding:8px 11px;border-radius:9px;background:#1c1f1d;color:#fff;font:500 12.5px/1.45 var(--body);box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .12s}
 #tip.on{opacity:1}
 label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:underline dotted color-mix(in srgb,var(--muted) 60%,transparent);text-underline-offset:3px}
+.add2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.add2 .btn{padding:8px 6px;font-size:13.5px}
 .prevpane{max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:70px}
 </style>
 </head>
@@ -209,12 +211,13 @@ function renderSteps(){
 function renderList(){
   const q=listQ.trim().toLowerCase();const groups={};
   for(const[k,v]of Object.entries(D.S)){const hay=(v.t+" "+k+" "+JSON.stringify(v.say||"")+" "+JSON.stringify(v.note||"")).toLowerCase();if(q&&!hay.includes(q))continue;(groups[v.kick||"Без раздела"]=groups[v.kick||"Без раздела"]||[]).push([k,v]);}
-  let h=`<input class="search" id="lq" type="search" placeholder="Поиск по шагам и фразам" value="${esc(listQ)}"><button type="button" class="btn primary" id="addStep" style="width:100%">+ Новый шаг</button>`;
+  let h=`<input class="search" id="lq" type="search" placeholder="Поиск по шагам и фразам" value="${esc(listQ)}"><div class="add2"><button type="button" class="btn primary" id="addStep">+ Новый шаг</button><button type="button" class="btn" id="addSec">+ Новый раздел</button></div>`;
   for(const[g,list]of Object.entries(groups))h+=`<p class="grp">${esc(g)}</p>`+list.map(([k,v])=>`<button type="button" class="si" data-id="${esc(k)}" aria-current="${k===cur}">${dead(v)?'<span class="warn" title="Кнопка ведёт на несуществующий шаг">! </span>':""}${esc(v.t||k)}</button>`).join("");
   if(!Object.keys(groups).length)h+=`<p class="empty">Ничего не нашлось.</p>`;
   const el=$("#slist");el.innerHTML=h;
   const lq=el.querySelector("#lq");lq.oninput=()=>{listQ=lq.value;renderList();const n=$("#lq");n.focus();n.setSelectionRange(n.value.length,n.value.length);};
-  el.querySelector("#addStep").onclick=()=>{const id=newId();D.S[id]={t:"Новый шаг",kick:(D.S[cur]&&D.S[cur].kick)||"",say:"",opts:[["Дальше","close"]]};cur=id;markDirty();renderSteps();setTimeout(()=>{const t=$("#f_t");t.focus();t.select();},0);};
+  el.querySelector("#addStep").onclick=openNewStep;
+  el.querySelector("#addSec").onclick=openNewSection;
   el.querySelectorAll(".si").forEach(b=>b.onclick=()=>{cur=b.dataset.id;renderSteps();window.scrollTo({top:0});});
 }
 function ta(id,label,val,rows){return `<div class="f"><label for="${id}">${label}</label><textarea id="${id}" rows="${rows||2}">${esc(val)}</textarea></div>`;}
@@ -546,6 +549,55 @@ function grow(t){t.style.height="auto";t.style.height=(t.scrollHeight+2)+"px";}
 document.addEventListener("input",e=>{if(e.target.tagName==="TEXTAREA")grow(e.target);});
 new MutationObserver(()=>{clearTimeout(grow.t);grow.t=setTimeout(()=>document.querySelectorAll("#view textarea").forEach(grow),0);}).observe(document.getElementById("view"),{childList:true,subtree:true});
 
+
+/* ============ новый шаг / новый раздел — в указанное место ============ */
+const secName=v=>v.kick||"Без раздела";
+function sectionsOrder(){const o=[];for(const v of Object.values(D.S)){const k=secName(v);if(!o.includes(k))o.push(k);}return o;}
+function insertAt(index,id,step){const arr=Object.entries(D.S);arr.splice(index,0,[id,step]);D.S=Object.fromEntries(arr);}
+function idxOf(id){return Object.keys(D.S).indexOf(id);}
+function stepsOf(sec){return Object.entries(D.S).filter(([k,v])=>secName(v)===sec);}
+function posOptions(sec,selAfter){
+  const list=stepsOf(sec);
+  return `<option value="__top">В начало раздела</option>`+list.map(([k,v])=>`<option value="${esc(k)}" ${k===selAfter?"selected":""}>После «${esc(v.t||k)}»</option>`).join("")+(list.length&&!selAfter?"":"");
+}
+function finishCreate(id){cur=id;markDirty();closeModal();renderSteps();setTimeout(()=>{const t=$("#f_t");if(t){t.focus();t.select();}},0);}
+function openNewStep(){
+  const secs=sectionsOrder();const curSec=D.S[cur]?secName(D.S[cur]):secs[0];
+  modal(`<h2>Новый шаг</h2>
+  <div class="f"><label for="ns_t">Название шага</label><input id="ns_t" value="" placeholder="Например: Запись к офтальмологу"></div>
+  <div class="row3" style="grid-template-columns:1fr 1fr"><div class="f"><label for="ns_s">Раздел</label><select id="ns_s">${secs.map(x=>`<option ${x===curSec?"selected":""}>${esc(x)}</option>`).join("")}</select></div>
+  <div class="f"><label for="ns_p">Куда поставить</label><select id="ns_p"></select></div></div>
+  <p class="help">Чтобы оператор мог попасть на шаг, на него должна вести кнопка из другого шага. После создания добавьте её в нужном шаге: «+ Кнопка» → выберите этот шаг.</p>
+  <div class="acts"><button type="button" class="btn primary" id="ns_ok">Создать шаг</button><button type="button" class="btn" data-close>Отмена</button></div>`);
+  const fill=()=>{const sec=$("#ns_s").value;const lastOrCur=(D.S[cur]&&secName(D.S[cur])===sec)?cur:(stepsOf(sec).slice(-1)[0]||[])[0];$("#ns_p").innerHTML=posOptions(sec,lastOrCur);};
+  $("#ns_s").onchange=fill;fill();
+  $("#ns_t").focus();
+  $("#ns_t").onkeydown=e=>{if(e.key==="Enter")$("#ns_ok").click();};
+  $("#ns_ok").onclick=()=>{
+    const t=$("#ns_t").value.trim()||"Новый шаг";const sec=$("#ns_s").value;const pos=$("#ns_p").value;
+    const list=stepsOf(sec);let index;
+    if(pos==="__top")index=list.length?idxOf(list[0][0]):Object.keys(D.S).length;else index=idxOf(pos)+1;
+    const id=newId();insertAt(index,id,{t,kick:sec==="Без раздела"?"":sec,say:"",opts:[["Дальше","close"]]});finishCreate(id);
+  };
+}
+function openNewSection(){
+  const secs=sectionsOrder();const curSec=D.S[cur]?secName(D.S[cur]):secs[secs.length-1];
+  modal(`<h2>Новый раздел</h2>
+  <div class="f"><label for="nc_n">Название раздела</label><input id="nc_n" placeholder="Например: Офтальмология"></div>
+  <div class="f"><label for="nc_p">Куда поставить</label><select id="nc_p"><option value="__top">В самый верх списка</option>${secs.map(x=>`<option value="${esc(x)}" ${x===curSec?"selected":""}>После раздела «${esc(x)}»</option>`).join("")}</select></div>
+  <div class="f"><label for="nc_t">Первый шаг раздела</label><input id="nc_t" value="" placeholder="Например: Какой специалист нужен"></div>
+  <p class="help">Раздел не может быть пустым, поэтому вместе с ним создаётся первый шаг. Название раздела операторы видят мелкой надписью над заголовком шага.</p>
+  <div class="acts"><button type="button" class="btn primary" id="nc_ok">Создать раздел</button><button type="button" class="btn" data-close>Отмена</button></div>`);
+  $("#nc_n").focus();
+  $("#nc_ok").onclick=()=>{
+    const name=$("#nc_n").value.trim();
+    if(!name){$("#nc_n").focus();$("#nc_n").style.borderColor="var(--danger)";return;}
+    if(secs.includes(name)){$("#nc_n").style.borderColor="var(--danger)";$("#nc_n").value=name;banner("Раздел «"+esc(name)+"» уже есть. Чтобы добавить в него шаг, нажмите «+ Новый шаг».","err");return;}
+    const pos=$("#nc_p").value;let index;
+    if(pos==="__top")index=0;else{const list=stepsOf(pos);index=idxOf(list[list.length-1][0])+1;}
+    const id=newId();insertAt(index,id,{t:$("#nc_t").value.trim()||"Новый шаг",kick:name,say:"",opts:[["Дальше","close"]]});finishCreate(id);
+  };
+}
 /* ============ подсказки при наведении ============ */
 const TIPS=[
  ["#state","Есть ли правки, которые ещё не отправлены операторам."],
@@ -561,7 +613,8 @@ const TIPS=[
  ['.atabs [data-v="memo"]',"Правая вкладка «Памятка»: общие правила, возраст, коды переводов."],
  ['.atabs [data-v="help"]',"Страница, которую операторы открывают кнопкой «?» в скрипте."],
  ["#lq","Ищет по названиям шагов и по тексту фраз."],
- ["#addStep","Создаёт пустой шаг. Чтобы оператор мог на него попасть, на него должна вести кнопка из другого шага — поэтому удобнее «+ Кнопка на новый шаг»."],
+ ["#addSec","Создаёт новый раздел в списке слева — вы выберете, после какого раздела его поставить. Вместе с разделом создаётся его первый шаг."],
+ ["#addStep","Создаёт шаг в разделе и месте, которые вы выберете. Чтобы оператор мог на него попасть, на него должна вести кнопка из другого шага."],
  ['label[for="f_t"], #f_t',"Заголовок карточки у оператора и название шага в списке слева."],
  ['label[for="f_k"], #f_k',"Группа в списке слева и мелкая подпись над заголовком у оператора, например «Диагностика». Можно выбрать существующую или вписать новую."],
  ['label[for="f_d"], #f_d',"Карточка с красной рамкой — для экстренных ситуаций и оскорблений, чтобы оператор сразу заметил."],
