@@ -69,7 +69,7 @@ function newCall(){ state.cur="start"; state.line=null; state.hist=[]; render();
 
 function blocksHtml(list){
   return (list||[]).map(b=>{
-    if(b.h!=null) return `<h4>${esc(b.h)}</h4>`;
+    if(b.h!=null) return `<h4 data-sec>${esc(b.h)}</h4>`;
     if(b.p!=null) return b.p.split("\n").map(x=>`<p>${fmt(x)}</p>`).join("");
     if(b.table){
       const head=b.table.head||[]; const u=head.findIndex(x=>/участ/i.test(x));const tl=head.findIndex(x=>/телефон|номер/i.test(x));
@@ -78,14 +78,33 @@ function blocksHtml(list){
     return "";
   }).join("");
 }
+function secLabel(h){
+  let t=h.replace(/\s*\([^)]*\)/g,"").replace(/\s+П[56]$/,"").trim();
+  const parts=t.split(" · ");
+  if(parts.length>1) t=/^(Уральская|Абая|Юбилейный)/.test(parts[0])?parts[1]:parts[0];
+  return t;
+}
+/* Вкладка «Врачи»: быстрая навигация по разделам + сам справочник */
+function showDocs(list){
+  const p=$("#pane");
+  const secs=(list||[]).filter(b=>b.h!=null).map(b=>b.h);
+  p.innerHTML=(secs.length>1?`<div class="qnav" role="navigation" aria-label="Разделы справочника">${secs.map((h,i)=>`<button type="button" data-s="${i}" title="${esc(h)}">${esc(secLabel(h))}</button>`).join("")}</div>`:"")+blocksHtml(list);
+  const hs=[...p.querySelectorAll("h4[data-sec]")];
+  const btns=[...p.querySelectorAll(".qnav button")];
+  btns.forEach(b=>b.onclick=()=>{const h=hs[+b.dataset.s]; if(h) h.scrollIntoView({block:"start",behavior:"smooth"});});
+  const mark=()=>{ const nav=p.querySelector(".qnav"); if(!nav) return; const top=p.getBoundingClientRect().top+nav.offsetHeight+8; let cur=0; hs.forEach((h,i)=>{ if(h.getBoundingClientRect().top<=top+4) cur=i; }); btns.forEach((b,i)=>b.setAttribute("aria-current",String(i===cur))); };
+  const nv=p.querySelector(".qnav"); if(nv) p.style.setProperty("--qnav-h",(nv.offsetHeight+8)+"px");
+  p.onscroll=mark; mark();
+}
 function renderPane(){
   ["doc","odd","memo"].forEach(t=>$("#tab-"+t).setAttribute("aria-selected", String(state.tab===t)));
   const p=$("#pane");
   if(state.tab==="doc"){
-    if(state.line) p.innerHTML = blocksHtml(DOCTORS[state.line]);
-    else p.innerHTML = `<p class="empty">Выберите П5 или П6 в скрипте — здесь появятся врачи этой поликлиники.</p><p><button class="btn" type="button" data-l="p5">Показать П5</button> <button class="btn" type="button" data-l="p6">Показать П6</button></p>`;
-    p.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{p.innerHTML=blocksHtml(DOCTORS[b.dataset.l]);});
+    if(state.line) showDocs(DOCTORS[state.line]);
+    else { p.onscroll=null; p.innerHTML = `<p class="empty">Выберите П5 или П6 в скрипте — здесь появятся врачи этой поликлиники.</p><p><button class="btn" type="button" data-l="p5">Показать П5</button> <button class="btn" type="button" data-l="p6">Показать П6</button></p>`; }
+    p.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>showDocs(DOCTORS[b.dataset.l]));
   } else if(state.tab==="odd"){
+    p.onscroll=null;
     const q = (p.querySelector(".search")||{}).value || "";
     p.innerHTML = `<input class="search" id="oddSearch" type="search" placeholder="Поиск: БЛ, снимок, отпуск, полиция…" value="${esc(q)}"><div id="oddList"></div>`;
     const inp=p.querySelector("#oddSearch");
@@ -99,7 +118,7 @@ function renderPane(){
     };
     inp.oninput=draw; draw();
   } else {
-    p.innerHTML = blocksHtml(MEMO);
+    p.onscroll=null; p.innerHTML = blocksHtml(MEMO);
   }
 }
 
@@ -189,7 +208,7 @@ function openResult(r){
   }
   state.tab=a.tab; renderPane();
   const p=$("#pane");
-  if(a.tab==="doc" && a.line && !state.line) p.innerHTML=blocksHtml(DOCTORS[a.line]);
+  if(a.tab==="doc" && a.line && !state.line) showDocs(DOCTORS[a.line]);
   if(a.tab==="odd"){ const inp=$("#oddSearch"); inp.value=a.q; inp.oninput(); flash(p.querySelector("details")); }
   else { const els = a.sel==="tr" ? [...p.querySelectorAll("tr")].filter(t=>t.querySelector("td")) : [...p.querySelectorAll(a.sel)]; flash(els[a.n]); }
   if(window.innerWidth<=980) p.scrollIntoView({behavior:"smooth"});

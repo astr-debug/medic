@@ -119,3 +119,10 @@ details div{font-size:13.5px;padding:6px 0 2px;color:var(--ink)}
 .gsr .empty{padding:8px 10px;margin:0}
 mark{background:color-mix(in srgb,var(--note-line) 38%,transparent);color:inherit;border-radius:3px;padding:0 1px}
 tr.hl td,p.hl,h4.hl,details.hl{background:var(--note-bg);transition:background 1.2s}
+
+/* Быстрая навигация по справочнику врачей */
+.qnav{position:sticky;top:-14px;z-index:2;display:flex;flex-wrap:wrap;gap:5px;margin:-14px -16px 12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.qnav button{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 10px;font:600 12px var(--display);color:var(--muted);cursor:pointer}
+.qnav button:hover{border-color:var(--accent);color:var(--ink)}
+.qnav button[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pane h4[data-sec]{scroll-margin-top:var(--qnav-h,96px)}
