@@ -115,6 +115,17 @@ fieldset.fs-say{border-left:4px solid var(--say-line)} fieldset.fs-note{border-l
 label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:underline dotted color-mix(in srgb,var(--muted) 60%,transparent);text-underline-offset:3px}
 .add2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .add2 .btn{padding:8px 6px;font-size:13.5px}
+.abs-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.abs-top .search{flex:1 1 260px;margin:0}
+.abs-row{display:grid;grid-template-columns:minmax(150px,1.4fr) 70px 140px 140px 140px minmax(140px,1.4fr) auto;gap:6px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--bg)}
+.abs-row .inp{padding:7px 9px;background:var(--surface)}
+.abs-row.now{border-color:#f59e0b;background:color-mix(in srgb,#f59e0b 9%,var(--bg))}
+.abs-row.past{opacity:.6}
+.abs-head{display:grid;grid-template-columns:minmax(150px,1.4fr) 70px 140px 140px 140px minmax(140px,1.4fr) auto;gap:6px;padding:0 9px 4px;font:600 12px var(--display);color:var(--muted)}
+@media (max-width:1100px){.abs-row,.abs-head{grid-template-columns:1fr 1fr}.abs-head{display:none}}
+.pill{display:inline-block;font:700 11px var(--display);border-radius:999px;padding:2px 8px;margin-left:6px}
+.pill.now{background:#f59e0b;color:#1f1300}.pill.soon{background:var(--surface);border:1px solid var(--line);color:var(--muted)}.pill.past{background:var(--surface);color:var(--muted)}
+.abs-grp{font:700 13px var(--display);margin:16px 0 6px}
 .prevpane{max-height:calc(100vh - 140px);overflow:auto;position:sticky;top:70px}
 </style>
 </head>
@@ -136,6 +147,7 @@ label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:unde
   <button type="button" data-v="odd">Нестандартное</button>
   <button type="button" data-v="memo">Памятка</button>
   <button type="button" data-v="help">Руководство операторам</button>
+  <button type="button" data-v="abs">Отпуска врачей</button>
   <a class="btn" href="admin-help.html" target="_blank" rel="noopener" style="margin:6px 0 6px auto;text-decoration:none;align-self:center;color:var(--accent)">Как пользоваться</a>
   <a class="btn" href="./" target="_blank" rel="noopener" style="margin:6px 0;text-decoration:none;align-self:center;color:var(--accent)">Открыть скрипт</a>
 </nav>
@@ -159,7 +171,7 @@ function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null
 function cfg(){let g={};try{g=JSON.parse(ls(LS_GH)||"{}")}catch(e){}return{owner:g.owner||"astr-debug",repo:g.repo||"medic",branch:g.branch||"main",token:g.token||""};}
 function b64dec(s){const bin=atob(s.replace(/\s/g,""));const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return new TextDecoder().decode(u);}
 function b64enc(s){const u=new TextEncoder().encode(s);let bin="";for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(bin);}
-function parse(text){return new Function(text+"\n;return {S:S,DOCTORS:DOCTORS,ODD:ODD,MEMO:MEMO,HELP:(typeof HELP!==\"undefined\"?HELP:[])};")();}
+function parse(text){return new Function(text+"\n;return {S:S,DOCTORS:DOCTORS,ODD:ODD,MEMO:MEMO,HELP:(typeof HELP!==\"undefined\"?HELP:[]),ABSENT:(typeof ABSENT!==\"undefined\"?ABSENT:[])};")();}
 function setState(t,cls){const e=$("#state");e.textContent=t;e.className="state"+(cls?" "+cls:"");}
 function banner(html,cls,actions){const b=document.createElement("div");b.className="banner"+(cls?" "+cls:"");b.innerHTML=`<span>${html}</span>`;(actions||[]).forEach(([l,f,primary])=>{const x=document.createElement("button");x.type="button";x.className="btn"+(primary?" primary":"");x.textContent=l;x.onclick=()=>{f();b.remove();};b.appendChild(x);});const c=document.createElement("button");c.type="button";c.className="btn";c.textContent="Скрыть";c.onclick=()=>b.remove();b.appendChild(c);$("#banners").prepend(b);return b;}
 
@@ -175,7 +187,7 @@ async function load(){
   }
   if(text===null){const r=await fetch("data.js?v="+Date.now(),{cache:"no-store"});text=await r.text();}
   D=parse(text); base=text; dirty=false;
-  D.DOCTORS=D.DOCTORS||{p5:[],p6:[]}; D.DOCTORS.p5=D.DOCTORS.p5||[]; D.DOCTORS.p6=D.DOCTORS.p6||[]; D.ODD=D.ODD||[]; D.MEMO=D.MEMO||[]; D.HELP=D.HELP||[];
+  D.DOCTORS=D.DOCTORS||{p5:[],p6:[]}; D.DOCTORS.p5=D.DOCTORS.p5||[]; D.DOCTORS.p6=D.DOCTORS.p6||[]; D.ODD=D.ODD||[]; D.MEMO=D.MEMO||[]; D.HELP=D.HELP||[]; D.ABSENT=D.ABSENT||[];
   setState("Изменений нет");
   const dr=ls(LS_DRAFT);
   if(dr){try{const d=JSON.parse(dr); if(serializeData(d.data)!==text){
@@ -188,7 +200,7 @@ window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.return
 
 /* ============ вкладки ============ */
 function go(v){view=v;document.querySelectorAll(".atabs [data-v]").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));
-  if(v==="steps")renderSteps(); else if(v==="p5"||v==="p6")renderBlocks(D.DOCTORS[v],"Вкладка «Врачи» — "+(v==="p5"?"П5":"П6")); else if(v==="memo")renderBlocks(D.MEMO,"Вкладка «Памятка»"); else if(v==="help")renderBlocks(D.HELP,"Руководство для операторов (кнопка «?» в скрипте)",{h:"h3",doc:true}); else renderOdd();}
+  if(v==="steps")renderSteps(); else if(v==="p5"||v==="p6")renderBlocks(D.DOCTORS[v],"Вкладка «Врачи» — "+(v==="p5"?"П5":"П6")); else if(v==="memo")renderBlocks(D.MEMO,"Вкладка «Памятка»"); else if(v==="abs")renderAbs(); else if(v==="help")renderBlocks(D.HELP,"Руководство для операторов (кнопка «?» в скрипте)",{h:"h3",doc:true}); else renderOdd();}
 document.querySelectorAll(".atabs [data-v]").forEach(b=>b.onclick=()=>go(b.dataset.v));
 
 /* ============ шаги ============ */
@@ -369,6 +381,10 @@ function validate(){
   }
   for(const k of Object.keys(D.S))if(!reach.has(k))pr.push({id:k,m:"на этот шаг не ведёт ни одна кнопка"});
   if(!D.S.start)pr.push({hard:1,id:null,m:"нет первого шага (start)"});
+  (D.ABSENT||[]).forEach((x,i)=>{const who=x.who||"строка "+(i+1);
+    if(!String(x.who||"").trim())pr.push({hard:1,id:null,m:`Отпуска врачей: в строке ${i+1} не выбран врач`});
+    if(!x.from||!x.to)pr.push({hard:1,id:null,m:`Отпуска врачей: у «${who}» не указаны даты`});
+    else if(x.from>x.to)pr.push({hard:1,id:null,m:`Отпуска врачей: у «${who}» дата «с» позже даты «по»`});});
   return pr;
 }
 function showCheck(pr,title){
@@ -428,6 +444,8 @@ function summarize(a,b){
   blk("Нестандартное",odd(a.ODD),odd(b.ODD));
   blk("Памятка",a.MEMO,b.MEMO);
   blk("Руководство операторам",a.HELP||[],b.HELP||[]);
+  const absRows=l=>[{list:(l||[]).map(x=>`${x.who} (${x.line==="p6"?"П6":"П5"}) — ${(x.kind||"").toLowerCase()} ${fmtDay(x.from)}–${fmtDay(x.to)}${x.note?" · "+x.note:""}`).join("\n")}];
+  blk("Отпуска врачей",absRows(a.ABSENT),absRows(b.ABSENT));
   return out;
 }
 function summaryHtml(sm){
@@ -472,6 +490,7 @@ async function restoreVersion(cm,when){
     /* Разделы, которых в старой версии ещё не было (например, руководство операторам), оставляем текущими */
     const target=JSON.parse(JSON.stringify(old.d)); let keep=[];
     if(!/\bconst HELP\b/.test(old.text)){target.HELP=nowD.HELP;keep.push("руководство операторам");}
+    if(!/\bconst ABSENT\b/.test(old.text)){target.ABSENT=nowD.ABSENT;keep.push("отпуска врачей");}
     const newText=serializeData(target);
     const sm=summarize(nowD,target);
     box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2>
@@ -522,6 +541,7 @@ async function save(){
   const c=cfg();
   if(!c.token){openSettings("Чтобы сохранять изменения на сайт, нужен ключ доступа. Его выдаёт ответственный за сайт.");return;}
   const pr=validate();if(pr.some(p=>p.hard)){showCheck(pr,"Сначала исправьте ошибки");return;}
+  const purged=purgeExpired();
   const text=serializeData(D);
   if(text===base){setState("Изменений нет");banner("Сохранять нечего: изменений нет.","ok");return;}
   const url=`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js`;
@@ -600,6 +620,61 @@ function openNewSection(){
     const id=newId();insertAt(index,id,{t:$("#nc_t").value.trim()||"Новый шаг",kick:name,say:"",opts:[["Дальше","close"]]});finishCreate(id);
   };
 }
+
+/* ============ отпуска и больничные врачей ============ */
+const ABS_KINDS=["Отпуск","Больничный","Без содержания","Учёба","Другое"];
+const todayYmd=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+function fmtDay(s){return s?s.slice(8,10)+"."+s.slice(5,7)+"."+s.slice(0,4):"?";}
+/* Список врачей для выбора — из таблиц вкладки «Врачи» */
+function doctorNames(line){
+  const re=/[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+\s+[А-ЯЁӘҒҚҢӨҰҮҺІ]\.(?:\s?[А-ЯЁӘҒҚҢӨҰҮҺІ]\.)?/g;const set=new Set();
+  (D.DOCTORS[line]||[]).forEach(b=>{if(!b.table)return;const hd=b.table.head||[];const cols=hd.map((h,i)=>/врач|гинеколог|акушер/i.test(h)?i:-1).filter(i=>i>=0);
+    (b.table.rows||[]).forEach(r=>cols.forEach(i=>{(String(r[i]||"").match(re)||[]).forEach(n=>set.add(n.replace(/\s+/g," ")));}));});
+  return [...set].sort((a,b)=>a.localeCompare(b,"ru"));
+}
+function absStatus(x){const t=todayYmd();if(!x.from||!x.to)return "";if(x.to<t)return "past";if(x.from<=t)return "now";return "soon";}
+function purgeExpired(){const t=todayYmd();const before=D.ABSENT.length;D.ABSENT=D.ABSENT.filter(x=>!(x.to&&x.to<t));return before-D.ABSENT.length;}
+let absQ="";
+function renderAbs(){
+  $("#view").innerHTML=`<div style="padding:16px 20px;max-width:1300px"><div class="panel"><h2>Отпуска врачей</h2>
+  <p class="help">Операторы увидят врача во вкладке «Врачи» в блоке «Сейчас нет на работе» и с пометкой в таблице — с первого дня и за 7 дней заранее как «скоро». После даты «по» информация у операторов исчезает сама, а закончившиеся строки удаляются отсюда при следующем сохранении.</p>
+  <div class="abs-top"><input class="search" id="absq" type="search" placeholder="Найти врача" value="${esc(absQ)}" aria-label="Найти врача"><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
+  <datalist id="dl_p5">${doctorNames("p5").map(n=>`<option value="${esc(n)}">`).join("")}</datalist><datalist id="dl_p6">${doctorNames("p6").map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
+  <div id="absList"></div></div></div>`;
+  const draw=(focusIdx)=>{
+    const q=absQ.trim().toLowerCase().replace(/ё/g,"е");
+    const rows=D.ABSENT.map((x,i)=>({x,i,st:absStatus(x)})).filter(r=>!q||((r.x.who||"")+" "+(r.x.note||"")).toLowerCase().replace(/ё/g,"е").includes(q));
+    const order={now:0,soon:1,"":2,past:3};
+    rows.sort((a,b)=>(order[a.st]-order[b.st])||String(a.x.from||"").localeCompare(String(b.x.from||"")));
+    const head=`<div class="abs-head"><span>Врач</span><span>Линия</span><span>Причина</span><span>С</span><span>По</span><span>Кто замещает / заметка</span><span></span></div>`;
+    const row=r=>{const x=r.x;return `<div class="abs-row ${r.st}" data-i="${r.i}">
+      <input class="inp who" list="dl_${x.line==="p6"?"p6":"p5"}" value="${esc(x.who||"")}" placeholder="Начните вводить фамилию" aria-label="Врач">
+      <select class="inp line" aria-label="Поликлиника"><option value="p5" ${x.line!=="p6"?"selected":""}>П5</option><option value="p6" ${x.line==="p6"?"selected":""}>П6</option></select>
+      <select class="inp kind" aria-label="Причина">${ABS_KINDS.map(k=>`<option ${x.kind===k?"selected":""}>${k}</option>`).join("")}</select>
+      <input class="inp from" type="date" value="${esc(x.from||"")}" aria-label="С какого числа">
+      <input class="inp to" type="date" value="${esc(x.to||"")}" aria-label="По какое число">
+      <input class="inp note" value="${esc(x.note||"")}" placeholder="Например: замещает Кенжетаева" aria-label="Кто замещает или заметка">
+      <div class="ib"><button type="button" class="del" aria-label="Удалить строку" title="Удалить">✕</button></div></div>`;};
+    const grp=(st,title)=>{const g=rows.filter(r=>r.st===st);return g.length?`<p class="abs-grp">${title} <span class="pill ${st||"soon"}">${g.length}</span></p>${head}${g.map(row).join("")}`:"";};
+    let h=grp("now","Сейчас нет на работе")+grp("soon","Запланированы")+grp("","Не заполнены даты");
+    const past=rows.filter(r=>r.st==="past");
+    if(past.length)h+=`<details><summary class="abs-grp" style="cursor:pointer">Закончились — удалятся при следующем сохранении <span class="pill past">${past.length}</span></summary>${head}${past.map(row).join("")}</details>`;
+    if(!rows.length)h=`<p class="empty">${D.ABSENT.length?"Ничего не нашлось.":"Пока никого нет. Нажмите «+ Добавить отсутствие»."}</p>`;
+    $("#absList").innerHTML=h;
+    $("#absList").querySelectorAll(".abs-row").forEach(el=>{const x=D.ABSENT[+el.dataset.i];
+      const upd=()=>{x.who=el.querySelector(".who").value.trim();x.line=el.querySelector(".line").value;x.kind=el.querySelector(".kind").value;x.from=el.querySelector(".from").value;x.to=el.querySelector(".to").value;const n=el.querySelector(".note").value.trim();if(n)x.note=n;else delete x.note;markDirty();};
+      el.querySelectorAll("input").forEach(e=>e.addEventListener("input",upd));
+      el.querySelector(".line").addEventListener("change",()=>{upd();el.querySelector(".who").setAttribute("list","dl_"+x.line);});
+      el.querySelector(".kind").addEventListener("change",upd);
+      el.querySelectorAll(".from,.to").forEach(e=>e.addEventListener("change",()=>{upd();el.className="abs-row "+absStatus(x);})); /* без пересортировки, чтобы строка не прыгала во время ввода */
+      el.querySelector(".del").onclick=()=>{D.ABSENT.splice(+el.dataset.i,1);markDirty();draw();};
+    });
+    if(focusIdx!=null){const el=$("#absList").querySelector(`.abs-row[data-i="${focusIdx}"] .who`);if(el){el.focus();el.scrollIntoView({block:"center"});}}
+  };
+  $("#absq").oninput=e=>{absQ=e.target.value;draw();};
+  $("#absAdd").onclick=()=>{const t=todayYmd();D.ABSENT.push({who:"",line:"p5",kind:"Отпуск",from:t,to:""});markDirty();absQ="";$("#absq").value="";draw(D.ABSENT.length-1);};
+  draw();
+}
 /* ============ подсказки при наведении ============ */
 const TIPS=[
  ["#state","Есть ли правки, которые ещё не отправлены операторам."],
@@ -607,6 +682,15 @@ const TIPS=[
  ["#bDl","Скачивает весь скрипт одним файлом на этот компьютер — резервная копия. На сайт ничего не отправляет."],
  ["#bHist","Прошлые сохранения: что в них меняли, и возврат к старой версии."],
  ["#themeBtn","Светлая или тёмная тема. Выбор запоминается на этом компьютере."],
+ ['.atabs [data-v="abs"]',"Кто из врачей в отпуске или на больничном. Операторы увидят это во вкладке «Врачи»."],
+ ["#absq","Найти врача по фамилии или по заметке."],
+ ["#absAdd","Добавить врача, который уходит в отпуск, на больничный, учёбу или отпуск без содержания."],
+ [".abs-row .who","Выберите врача из подсказок — так фамилия точно совпадёт с таблицей врачей, и пометка появится у него в строке."],
+ [".abs-row .line","Поликлиника, в которой работает врач. Пометку увидят только операторы этой поликлиники."],
+ [".abs-row .from","Первый день, когда врача нет. За 7 дней до него операторы увидят пометку «скоро»."],
+ [".abs-row .to","Последний день отсутствия. На следующий день информация у операторов исчезнет сама."],
+ [".abs-row .note","Кто замещает или что сказать пациенту. Операторы увидят это под фамилией."],
+ [".abs-row .del","Удалить эту строку."],
  ["#bSet","Ключ, без которого нельзя сохранять на сайт. Вставляется один раз на этом компьютере, его выдаёт ответственный за сайт."],
  ["#bSave","Отправляет все правки операторам. Они увидят их через 1–2 минуты после обновления страницы."],
  ['.atabs [data-v="steps"]',"Карточки звонка: фразы для пациента, подсказки оператору и кнопки «что дальше»."],

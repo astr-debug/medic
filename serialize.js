@@ -23,7 +23,8 @@ function serializeData(d){
     "   DOCTORS — вкладка «Врачи» (p5 и p6)",
     "   ODD     — вкладка «Нестандартное»",
     "   MEMO    — вкладка «Памятка»",
-    "   HELP    — руководство для операторов (кнопка «?») */",
+    "   HELP    — руководство для операторов (кнопка «?»)",
+    "   ABSENT  — отпуска и больничные врачей (даты в формате ГГГГ-ММ-ДД) */",
     "",
     "const S = {\n" + steps.join(",\n") + "\n};",
     "",
@@ -34,6 +35,8 @@ function serializeData(d){
     "const MEMO = " + blocks(d.MEMO) + ";",
     "",
     "const HELP = " + blocks(d.HELP || []) + ";",
+    "",
+    "const ABSENT = " + ((d.ABSENT && d.ABSENT.length) ? "[\n" + d.ABSENT.map(x => "  " + j(x)).join(",\n") + "\n]" : "[]") + ";",
     ""
   ].join("\n");
 }

@@ -67,6 +67,38 @@ function back(){ if(!state.hist.length) return; const h=state.hist.pop(); state.
 function jumpBack(i){ const h=state.hist[i]; state.hist=state.hist.slice(0,i); state.cur=h.cur; state.line=h.line; render(); }
 function newCall(){ state.cur="start"; state.line=null; state.hist=[]; render(); window.scrollTo({top:0}); }
 
+
+/* ============================================================
+   ОТПУСКА И БОЛЬНИЧНЫЕ ВРАЧЕЙ (ABSENT в data.js)
+   Показываются сами по сегодняшней дате: сейчас + за 7 дней до начала. После даты «по» исчезают.
+   ============================================================ */
+const ABS = (typeof ABSENT!=="undefined" && Array.isArray(ABSENT)) ? ABSENT : [];
+const ymd = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const TODAY = ymd(new Date());
+const plusDays = (s,n) => { const d=new Date(s+"T12:00:00"); d.setDate(d.getDate()+n); return ymd(d); };
+const dm = s => s ? s.slice(8,10)+"."+s.slice(5,7) : "";
+const ABS_WORD = {"Отпуск":"в отпуске","Больничный":"на больничном","Без содержания":"в отпуске без содержания","Учёба":"на учёбе","Другое":"нет на работе"};
+function absFor(line){
+  const soon=plusDays(TODAY,7);
+  return ABS.filter(a=>a&&a.who&&a.line===line&&a.from&&a.to&&a.to>=TODAY&&a.from<=soon)
+    .map(a=>Object.assign({},a,{now:a.from<=TODAY}))
+    .sort((x,y)=>(y.now-x.now)||x.from.localeCompare(y.from)||x.who.localeCompare(y.who));
+}
+function absPhrase(a){ const w=ABS_WORD[a.kind]||"нет на работе"; return a.now ? `${w} до ${dm(a.to)}` : `с ${dm(a.from)} ${w} (до ${dm(a.to)})`; }
+const surname = who => (who||"").trim().split(/\s+/)[0];
+function absBoxHtml(line){
+  const list=absFor(line); if(!list.length) return "";
+  const item=a=>`<div class="abs-item ${a.now?"now":"soon"}"><b>${esc(a.who)}</b> — ${esc(absPhrase(a))}${a.note?`<span class="abs-note">${esc(a.note)}</span>`:""}</div>`;
+  const now=list.filter(a=>a.now), soon=list.filter(a=>!a.now);
+  return `<div class="absbox">${now.length?`<p class="abs-h">Сейчас нет на работе</p>${now.map(item).join("")}`:""}${soon.length?`<p class="abs-h soon">Скоро уходят</p>${soon.map(item).join("")}`:""}</div>`;
+}
+function markAbsent(p,line){
+  absFor(line).forEach(a=>{ const sn=surname(a.who); if(!sn) return;
+    p.querySelectorAll("tr").forEach(tr=>{ const td=[...tr.querySelectorAll("td")].find(c=>c.textContent.includes(sn)); if(!td||td.querySelector(".absbadge")) return;
+      td.insertAdjacentHTML("beforeend",` <span class="absbadge ${a.now?"now":"soon"}">${esc(absPhrase(a))}</span>`); });
+  });
+}
+function updateDocTab(){ const n=state.line?absFor(state.line).filter(a=>a.now).length:0; $("#tab-doc").innerHTML="Врачи"+(n?` <span class="tabcount" title="Сейчас нет на работе: ${n}">${n}</span>`:""); }
 function secLabel(h){
   let t=h.replace(/\s*\([^)]*\)/g,"").replace(/\s+П[56]$/,"").trim();
   const parts=t.split(" · ");
@@ -74,10 +106,11 @@ function secLabel(h){
   return t;
 }
 /* Вкладка «Врачи»: быстрая навигация по разделам + сам справочник */
-function showDocs(list){
+function showDocs(list,line){
   const p=$("#pane");
   const secs=(list||[]).filter(b=>b.h!=null).map(b=>b.h);
-  p.innerHTML=(secs.length>1?`<div class="qnav" role="navigation" aria-label="Разделы справочника">${secs.map((h,i)=>`<button type="button" data-s="${i}" title="${esc(h)}">${esc(secLabel(h))}</button>`).join("")}</div>`:"")+blocksHtml(list);
+  p.innerHTML=(secs.length>1?`<div class="qnav" role="navigation" aria-label="Разделы справочника">${secs.map((h,i)=>`<button type="button" data-s="${i}" title="${esc(h)}">${esc(secLabel(h))}</button>`).join("")}</div>`:"")+(line?absBoxHtml(line):"")+blocksHtml(list);
+  if(line) markAbsent(p,line);
   const hs=[...p.querySelectorAll("h4[data-sec]")];
   const btns=[...p.querySelectorAll(".qnav button")];
   btns.forEach(b=>b.onclick=()=>{const h=hs[+b.dataset.s]; if(h) h.scrollIntoView({block:"start",behavior:"smooth"});});
@@ -86,12 +119,13 @@ function showDocs(list){
   p.onscroll=mark; mark();
 }
 function renderPane(){
+  updateDocTab();
   ["doc","odd","memo"].forEach(t=>$("#tab-"+t).setAttribute("aria-selected", String(state.tab===t)));
   const p=$("#pane");
   if(state.tab==="doc"){
-    if(state.line) showDocs(DOCTORS[state.line]);
+    if(state.line) showDocs(DOCTORS[state.line],state.line);
     else { p.onscroll=null; p.innerHTML = `<p class="empty">Выберите П5 или П6 в скрипте — здесь появятся врачи этой поликлиники.</p><p><button class="btn" type="button" data-l="p5">Показать П5</button> <button class="btn" type="button" data-l="p6">Показать П6</button></p>`; }
-    p.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>showDocs(DOCTORS[b.dataset.l]));
+    p.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>showDocs(DOCTORS[b.dataset.l],b.dataset.l));
   } else if(state.tab==="odd"){
     p.onscroll=null;
     const q = (p.querySelector(".search")||{}).value || "";
@@ -138,6 +172,7 @@ function buildIndex(){
   blocks(DOCTORS.p6,"Врачи П6","p6","doc");
   ODD.forEach(([g,items])=>items.forEach(([q,a])=>out.push({kind:"Нестандартное",title:q,sub:g,parts:{a},act:{tab:"odd",q}})));
   blocks(MEMO,"Памятка",null,"memo");
+  ["p5","p6"].forEach(l=>absFor(l).forEach((x,i)=>out.push({kind:l==="p5"?"Врачи П5":"Врачи П6",title:x.who,sub:"Отпуска и больничные",parts:{a:absPhrase(x)+(x.note?" · "+x.note:"")},line:l,act:{tab:"doc",line:l,sel:".abs-item",n:i}})));
   out.forEach(e=>e.ntitle=norm(e.title+" "+e.sub));
   return out;
 }
@@ -199,7 +234,7 @@ function openResult(r){
   }
   state.tab=a.tab; renderPane();
   const p=$("#pane");
-  if(a.tab==="doc" && a.line && !state.line) showDocs(DOCTORS[a.line]);
+  if(a.tab==="doc" && a.line && !state.line) showDocs(DOCTORS[a.line],a.line);
   if(a.tab==="odd"){ const inp=$("#oddSearch"); inp.value=a.q; inp.oninput(); flash(p.querySelector("details")); }
   else { const els = a.sel==="tr" ? [...p.querySelectorAll("tr")].filter(t=>t.querySelector("td")) : [...p.querySelectorAll(a.sel)]; flash(els[a.n]); }
   if(window.innerWidth<=980) p.scrollIntoView({behavior:"smooth"});

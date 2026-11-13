@@ -132,3 +132,17 @@ tr.hl td,p.hl,h4.hl,details.hl{background:var(--note-bg);transition:background 1
 .tipb.warn{border-left-color:var(--note-line);background:var(--note-bg)}
 .pane ul.blist{margin:4px 0 10px;padding-left:20px;font-size:13.5px}
 .pane ul.blist li{margin-bottom:4px}
+
+/* Отпуска и больничные во вкладке «Врачи» */
+.absbox{border:1px solid var(--note-line);background:var(--note-bg);border-radius:12px;padding:10px 12px;margin:0 0 14px}
+.abs-h{font:700 12px var(--display);text-transform:uppercase;letter-spacing:.05em;color:var(--note-line);margin:0 0 6px}
+.abs-h.soon{color:var(--muted);margin-top:10px}
+.abs-item{font-size:13.5px;margin:0 0 6px;line-height:1.4}
+.abs-item.soon{color:var(--muted)}
+.abs-item.soon b{color:var(--ink)}
+.abs-note{display:block;font-size:12.5px;color:var(--muted)}
+.absbadge{display:inline-block;font:600 11px/1.3 var(--display);border-radius:999px;padding:2px 7px;margin-top:3px;white-space:nowrap}
+.absbadge.now{background:#f59e0b;color:#1f1300}
+.absbadge.soon{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.tabcount{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#f59e0b;color:#1f1300;font:700 11px var(--display);margin-left:4px;vertical-align:1px}
+.abs-item.hl{background:color-mix(in srgb,var(--note-line) 18%,transparent);border-radius:6px}
