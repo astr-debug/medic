@@ -424,20 +424,23 @@ function summaryHtml(sm){
   if(!sm.length)return `<p class="help" style="margin:0">Содержимое не отличается.</p>`;
   return sm.map(([name,items,kind,more])=>`<div><b>${esc(name)}</b><ul>${items.map(x=>Array.isArray(x)?`<li class="${x[0]}">${esc(x[1])}</li>`:`<li class="${kind==="add"?"add":kind==="del"?"del":""}">${esc(x)}</li>`).join("")}${more?`<li>…и ещё ${more}</li>`:""}</ul></div>`).join("");
 }
-let histList=[];
+let histList=[], histTop=null;
 async function openHistory(){
   modal(`<h2>История сохранений</h2><p class="help">Загружаю…</p>`);$("#modalBody").classList.add("wide-m");
   const c=cfg();
   try{
-    const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/commits?path=data.js&sha=${encodeURIComponent(c.branch)}&per_page=30`,{headers:ghHeaders(),cache:"no-store"});
+    const r=await fetch(`https://api.github.com/repos/${c.owner}/${c.repo}/commits?path=data.js&sha=${encodeURIComponent(c.branch)}&per_page=100`,{headers:ghHeaders(),cache:"no-store"});
     if(!r.ok)throw new Error("GitHub ответил "+r.status);
-    histList=await r.json();
+    const all=await r.json();
+    /* Показываем только сохранения из редактора: технические обновления сайта (автор «Claude») скрываем */
+    histTop=all.length?all[0].sha:null;
+    histList=all.filter(cm=>((cm.commit.author||{}).name||"")!=="Claude").slice(0,30);
   }catch(e){modal(`<h2>История сохранений</h2><p>Не удалось загрузить историю: ${esc(e.message)}. Проверьте интернет или ключ доступа.</p><div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`);$("#modalBody").classList.add("wide-m");return;}
   const fmtD=iso=>new Date(iso).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
   modal(`<h2>История сохранений</h2>
-  <p class="help">Последние 30 сохранений, сверху новые. «Что изменилось» — что поменяли в этом сохранении. «Вернуть эту версию» — скрипт станет таким, каким был сразу после этого сохранения; всё, что меняли позже, отменится (это тоже запишется в историю, так что возврат можно отменить).</p>
-  <div class="hl-list">${histList.map((cm,i)=>`<div class="hl-item" data-i="${i}"><div class="hl-top"><b>${esc((cm.commit.message||"").split("\n")[0])}</b><span class="when">${fmtD(cm.commit.committer.date)}</span>${i===0?`<span class="hl-cur">сейчас на сайте</span>`:""}
-    <span class="acts2"><button type="button" class="btn hd">Что изменилось</button>${i>0?`<button type="button" class="btn hr">Вернуть эту версию</button>`:""}</span></div><div class="diff" hidden></div></div>`).join("")}</div>
+  <p class="help">Последние 30 сохранений из редактора, сверху новые. «Что изменилось» — что поменяли в этом сохранении. «Вернуть эту версию» — скрипт станет таким, каким был сразу после этого сохранения; всё, что меняли позже, отменится (это тоже запишется в историю, так что возврат можно отменить).</p>
+  <div class="hl-list">${histList.length?"":`<p class="empty">Сохранений из редактора пока нет.</p>`}${histList.map((cm,i)=>`<div class="hl-item" data-i="${i}"><div class="hl-top"><b>${esc((cm.commit.message||"").split("\n")[0])}</b><span class="when">${fmtD(cm.commit.committer.date)}</span>${cm.sha===histTop?`<span class="hl-cur">сейчас на сайте</span>`:""}
+    <span class="acts2"><button type="button" class="btn hd">Что изменилось</button>${cm.sha!==histTop?`<button type="button" class="btn hr">Вернуть эту версию</button>`:""}</span></div><div class="diff" hidden></div></div>`).join("")}</div>
   <div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`);
   $("#modalBody").classList.add("wide-m");
   $("#modalBody").querySelectorAll(".hl-item").forEach(el=>{const i=+el.dataset.i;const cm=histList[i];const box=el.querySelector(".diff");
@@ -454,18 +457,23 @@ async function restoreVersion(cm,when){
   box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2><p class="help">Загружаю и сравниваю с тем, что сейчас на сайте…</p>`;
   try{
     const [old,now]=await Promise.all([dataAt(cm.sha),ghFileAt(c.branch)]);
-    const sm=summarize(parse(now.text),old.d);
+    const nowD=parse(now.text);
+    /* Разделы, которых в старой версии ещё не было (например, руководство операторам), оставляем текущими */
+    const target=JSON.parse(JSON.stringify(old.d)); let keep=[];
+    if(!/\bconst HELP\b/.test(old.text)){target.HELP=nowD.HELP;keep.push("руководство операторам");}
+    const newText=serializeData(target);
+    const sm=summarize(nowD,target);
     box.innerHTML=`<h2>Вернуть версию от ${esc(when)}?</h2>
     <p><b>«${esc((cm.commit.message||"").split("\n")[0])}»</b></p>
     ${dirty?`<div class="banner err" style="margin:0 0 10px"><span>В редакторе есть несохранённые правки — после возврата они пропадут. Если они нужны, закройте это окно и нажмите «Скачать data.js».</span></div>`:""}
-    <p>Что изменится на сайте по сравнению с текущей версией:</p><div class="diff">${summaryHtml(sm)}</div>
+    <p>Что изменится на сайте по сравнению с текущей версией:</p>${keep.length?`<p class="help">Не изменится: ${esc(keep.join(", "))} — в той версии этого раздела ещё не было.</p>`:""}<div class="diff">${summaryHtml(sm)}</div>
     <div class="acts"><button type="button" class="btn primary" id="doRestore">Да, вернуть эту версию</button><button type="button" class="btn" id="backHist">Назад к истории</button></div>`;
     $("#backHist").onclick=openHistory;
     $("#doRestore").onclick=async()=>{
       $("#doRestore").disabled=true;$("#doRestore").textContent="Возвращаю…";
       try{
         const url=`https://api.github.com/repos/${c.owner}/${c.repo}/contents/data.js`;
-        const r=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify({message:"Возврат к версии от "+when,content:b64enc(old.text),sha:now.sha,branch:c.branch})});
+        const r=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify({message:"Возврат к версии от "+when,content:b64enc(newText),sha:now.sha,branch:c.branch})});
         if(r.status===401)throw new Error("Ключ не подошёл или срок его действия закончился.");
         if(r.status===403||r.status===404)throw new Error("Ключ не даёт права сохранять.");
         if(r.status===409)throw new Error("Скрипт только что изменился. Откройте историю заново.");
