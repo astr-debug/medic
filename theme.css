@@ -62,3 +62,5 @@ aside{border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.04)}
 .search{border-radius:999px}
 
 a.btn{text-decoration:none;color:var(--ink);display:inline-flex;align-items:center}
+
+.btn.themebtn{padding:0;width:38px;height:38px;justify-content:center;display:inline-flex;align-items:center}
