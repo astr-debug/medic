@@ -12,11 +12,12 @@
 <style>
 /* Раскладка редактора: вкладки разделов; для шагов — список слева, форма по центру, предпросмотр справа. */
 .top{gap:8px 10px}
+.top .brand{margin-right:auto}
 .state{font:600 12.5px var(--display);padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .state.dirty{color:var(--note-line);border-color:var(--note-line);background:var(--note-bg)}
 .state.ok{color:var(--say-line);border-color:var(--say-line);background:var(--say-bg)}
 .state.err{color:var(--danger);border-color:var(--danger);background:var(--danger-soft)}
-#msg{width:200px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+#msg{width:200px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit}
 .atabs{display:flex;gap:4px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
 .atabs button{border:0;background:none;padding:11px 14px;cursor:pointer;font:600 14px var(--display);color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 .atabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
