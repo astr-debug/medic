@@ -1,0 +1,62 @@
+/* Тема по сайту «Жемчужина Стомед»: фирменный зелёный, синий из логотипа, светло-серый фон, Montserrat, кнопки-«таблетки».
+   Подключается после style.css и переопределяет токены и несколько деталей. */
+:root{
+  --brand:#3dad72; --brand-blue:#0088d0;
+  --bg:#f7f7f7; --surface:#ffffff; --ink:#1c1f1d; --muted:#6a706c; --line:#e5e7e6;
+  --accent:#2f9e64; --accent-ink:#ffffff;
+  --say-bg:#ebf7f0; --say-line:#2f9e64; --note-bg:#fff7e6; --note-line:#d08a17;
+  --p5:#0079bb; --p5-soft:#e5f3fb; --p6:#8a3f97; --p6-soft:#f4e9f6;
+  --danger:#c62828; --danger-soft:#fdecec;
+  --display:"Montserrat","Segoe UI",system-ui,sans-serif; --body:"Montserrat","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111513; --surface:#1a201d; --ink:#e8eeea; --muted:#9daaa2; --line:#2a332e;
+    --accent:#4cc185; --accent-ink:#0b1a12;
+    --say-bg:#15301f; --say-line:#4cc185; --note-bg:#2f2611; --note-line:#e0a640;
+    --p5:#4fb3ea; --p5-soft:#11283a; --p6:#cf8ad9; --p6-soft:#2d1b31;
+    --danger:#f28b82; --danger-soft:#3a1a19;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111513; --surface:#1a201d; --ink:#e8eeea; --muted:#9daaa2; --line:#2a332e;
+  --accent:#4cc185; --accent-ink:#0b1a12;
+  --say-bg:#15301f; --say-line:#4cc185; --note-bg:#2f2611; --note-line:#e0a640;
+  --p5:#4fb3ea; --p5-soft:#11283a; --p6:#cf8ad9; --p6-soft:#2d1b31;
+  --danger:#f28b82; --danger-soft:#3a1a19;
+}
+body{font-size:14.5px}
+
+/* Шапка: зелёная полоса сверху, как на сайте клиники, ниже белая панель */
+.top{border-top:6px solid var(--brand);box-shadow:0 2px 12px rgba(0,0,0,.05);border-bottom:1px solid var(--line)}
+.brand{font-weight:800;letter-spacing:-.01em}
+.brand small{font-weight:500}
+.brand .zh{color:var(--brand)}
+.btn{border-radius:999px;padding:8px 18px;font-weight:600}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:#34a067;border-color:#34a067}
+.gs input{border-radius:999px;background:var(--bg);border-color:var(--line)}
+.gs input:focus{border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 25%,transparent)}
+.chip{border-radius:999px}
+
+/* Карточка шага */
+.card{border-radius:16px;border:1px solid var(--line);border-top:5px solid var(--brand);box-shadow:0 6px 24px rgba(0,0,0,.05)}
+.card.p5{border-top-color:var(--p5)} .card.p6{border-top-color:var(--p6)} .card.danger{border-top-color:var(--danger)}
+.kicker{color:var(--accent);letter-spacing:.07em}
+h1{font-weight:800;letter-spacing:-.015em}
+.block{border-radius:12px}
+.say p{font-weight:500}
+.opt{border-radius:14px;font-weight:600}
+.opt:hover{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 7%,var(--surface))}
+.opt .k{border-radius:50%}
+.opt.end{background:var(--brand);border-color:var(--brand);color:#fff}
+.q{font-weight:700}
+
+/* Боковая панель */
+aside{border-radius:16px;box-shadow:0 6px 24px rgba(0,0,0,.04)}
+.tabs button{font-weight:700}
+.tabs button[aria-selected="true"]{border-bottom-color:var(--brand)}
+.qnav button{font-weight:600}
+.qnav button[aria-current="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.pane h4{font-weight:800}
+.search{border-radius:999px}
