@@ -116,7 +116,14 @@ label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:unde
 .add2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .add2 .btn{padding:8px 6px;font-size:13.5px}
 .abs-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-.abs-top .search{flex:1 1 260px;margin:0}
+.abs-top .sw{position:relative;flex:1 1 260px}
+.abs-top .search{width:100%;margin:0}
+.abs-sug{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:12;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);max-height:340px;overflow:auto;padding:6px}
+.abs-sug button{display:flex;gap:10px;align-items:baseline;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px;cursor:pointer;font:inherit;color:var(--ink)}
+.abs-sug button[aria-selected="true"],.abs-sug button:hover{background:color-mix(in srgb,var(--accent) 11%,var(--surface))}
+.abs-sug small{color:var(--muted);font-size:12.5px}
+.abs-sug .st{margin-left:auto;font:600 11px var(--display);color:#b45309;white-space:nowrap}
+.abs-sug .hint2{padding:6px 10px 4px;margin:0;font-size:12px;color:var(--muted)}
 .abs-row{display:grid;grid-template-columns:minmax(150px,1.4fr) 70px 140px 140px 140px minmax(140px,1.4fr) auto;gap:6px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--bg)}
 .abs-row .inp{padding:7px 9px;background:var(--surface)}
 .abs-row.now{border-color:#f59e0b;background:color-mix(in srgb,#f59e0b 9%,var(--bg))}
@@ -638,10 +645,10 @@ let absQ="";
 function renderAbs(){
   $("#view").innerHTML=`<div style="padding:16px 20px;max-width:1300px"><div class="panel"><h2>Отпуска врачей</h2>
   <p class="help">Операторы увидят врача во вкладке «Врачи» в блоке «Сейчас нет на работе» и с пометкой в таблице — с первого дня и за 7 дней заранее как «скоро». После даты «по» информация у операторов исчезает сама, а закончившиеся строки удаляются отсюда при следующем сохранении.</p>
-  <div class="abs-top"><input class="search" id="absq" type="search" placeholder="Найти врача" value="${esc(absQ)}" aria-label="Найти врача"><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
+  <div class="abs-top"><div class="sw"><input class="search" id="absq" type="search" autocomplete="off" placeholder="Начните вводить фамилию врача" value="${esc(absQ)}" aria-label="Найти врача"><div class="abs-sug" id="absSug" hidden></div></div><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
   <datalist id="dl_p5">${doctorNames("p5").map(n=>`<option value="${esc(n)}">`).join("")}</datalist><datalist id="dl_p6">${doctorNames("p6").map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
   <div id="absList"></div></div></div>`;
-  const draw=(focusIdx)=>{
+  const draw=(focusIdx,field)=>{
     const q=absQ.trim().toLowerCase().replace(/ё/g,"е");
     const rows=D.ABSENT.map((x,i)=>({x,i,st:absStatus(x)})).filter(r=>!q||((r.x.who||"")+" "+(r.x.note||"")).toLowerCase().replace(/ё/g,"е").includes(q));
     const order={now:0,soon:1,"":2,past:3};
@@ -659,7 +666,7 @@ function renderAbs(){
     let h=grp("now","Сейчас нет на работе")+grp("soon","Запланированы")+grp("","Не заполнены даты");
     const past=rows.filter(r=>r.st==="past");
     if(past.length)h+=`<details><summary class="abs-grp" style="cursor:pointer">Закончились — удалятся при следующем сохранении <span class="pill past">${past.length}</span></summary>${head}${past.map(row).join("")}</details>`;
-    if(!rows.length)h=`<p class="empty">${D.ABSENT.length?"Ничего не нашлось.":"Пока никого нет. Нажмите «+ Добавить отсутствие»."}</p>`;
+    if(!rows.length)h=`<p class="empty">${absQ.trim()?"У этого врача отпусков нет. Выберите его в подсказке под поиском, чтобы добавить.":"Пока никого нет. Начните вводить фамилию врача в поиске или нажмите «+ Добавить отсутствие»."}</p>`;
     $("#absList").innerHTML=h;
     $("#absList").querySelectorAll(".abs-row").forEach(el=>{const x=D.ABSENT[+el.dataset.i];
       const upd=()=>{x.who=el.querySelector(".who").value.trim();x.line=el.querySelector(".line").value;x.kind=el.querySelector(".kind").value;x.from=el.querySelector(".from").value;x.to=el.querySelector(".to").value;const n=el.querySelector(".note").value.trim();if(n)x.note=n;else delete x.note;markDirty();};
@@ -669,9 +676,33 @@ function renderAbs(){
       el.querySelectorAll(".from,.to").forEach(e=>e.addEventListener("change",()=>{upd();el.className="abs-row "+absStatus(x);})); /* без пересортировки, чтобы строка не прыгала во время ввода */
       el.querySelector(".del").onclick=()=>{D.ABSENT.splice(+el.dataset.i,1);markDirty();draw();};
     });
-    if(focusIdx!=null){const el=$("#absList").querySelector(`.abs-row[data-i="${focusIdx}"] .who`);if(el){el.focus();el.scrollIntoView({block:"center"});}}
+    if(focusIdx!=null){const el=$("#absList").querySelector(`.abs-row[data-i="${focusIdx}"] ${field||".who"}`);if(el){el.focus();el.scrollIntoView({block:"center"});const row=el.closest(".abs-row");row.style.outline="2px solid var(--accent)";setTimeout(()=>row.style.outline="",1800);}}
   };
-  $("#absq").oninput=e=>{absQ=e.target.value;draw();};
+  /* Подсказки врачей при вводе: выбор сразу создаёт строку отсутствия для этого врача */
+  const allDocs=[];
+  ["p5","p6"].forEach(l=>{let sec="";(D.DOCTORS[l]||[]).forEach(b=>{if(b.h!=null){sec=b.h;return;}if(!b.table)return;const hd=b.table.head||[];const cols=hd.map((h,i)=>/врач|гинеколог|акушер/i.test(h)?i:-1).filter(i=>i>=0);
+    const re=/[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+\s+[А-ЯЁӘҒҚҢӨҰҮҺІ]\.(?:\s?[А-ЯЁӘҒҚҢӨҰҮҺІ]\.)?/g;
+    (b.table.rows||[]).forEach(r=>cols.forEach(i=>(String(r[i]||"").match(re)||[]).forEach(n=>{n=n.replace(/\s+/g," ");if(!allDocs.some(d=>d.name===n&&d.line===l))allDocs.push({name:n,line:l,sec});})));});});
+  const nrm=x=>String(x||"").toLowerCase().replace(/ё/g,"е");
+  let sugSel=0,sugItems=[];
+  const sug=$("#absSug"), inp=$("#absq");
+  const statusOf=d=>{const r=D.ABSENT.find(x=>x.who===d.name&&x.line===d.line&&absStatus(x)!=="past");if(!r)return "";const st=absStatus(r);return st==="now"?"сейчас нет до "+fmtDay(r.to).slice(0,5):st==="soon"?"с "+fmtDay(r.from).slice(0,5):"";};
+  const drawSug=()=>{const q=nrm(inp.value.trim());if(!q){sug.hidden=true;return;}
+    sugItems=allDocs.filter(d=>nrm(d.name).includes(q)).slice(0,12);sugSel=0;
+    sug.innerHTML=sugItems.length?`<p class="hint2">Выберите врача — добавится строка отсутствия</p>`+sugItems.map((d,i)=>`<button type="button" data-i="${i}" aria-selected="${i===0}"><b>${esc(d.name)}</b><small>${d.line==="p6"?"П6":"П5"} · ${esc(d.sec.replace(/\s*\([^)]*\)/g,""))}</small><span class="st">${esc(statusOf(d))}</span></button>`).join(""):`<p class="hint2">Такого врача нет в таблицах вкладок «Врачи П5/П6». Можно добавить строку и вписать фамилию вручную.</p>`;
+    sug.hidden=false;
+    sug.querySelectorAll("button").forEach(b=>{b.onmousedown=e=>e.preventDefault();b.onclick=()=>pickDoc(sugItems[+b.dataset.i]);});};
+  const pickDoc=d=>{if(!d)return;const t=todayYmd();D.ABSENT.push({who:d.name,line:d.line,kind:"Отпуск",from:t,to:""});markDirty();sug.hidden=true;absQ="";inp.value="";draw(D.ABSENT.length-1,".to");};
+  inp.oninput=e=>{absQ=e.target.value;draw();drawSug();};
+  inp.onfocus=drawSug;
+  inp.onblur=()=>setTimeout(()=>{sug.hidden=true;},150);
+  inp.onkeydown=e=>{const btns=[...sug.querySelectorAll("button")];
+    if(e.key==="ArrowDown"&&btns.length){e.preventDefault();sugSel=(sugSel+1)%btns.length;}
+    else if(e.key==="ArrowUp"&&btns.length){e.preventDefault();sugSel=(sugSel-1+btns.length)%btns.length;}
+    else if(e.key==="Enter"){e.preventDefault();if(sugItems.length)pickDoc(sugItems[sugSel]);return;}
+    else if(e.key==="Escape"){sug.hidden=true;return;}
+    else return;
+    btns.forEach((b,i)=>b.setAttribute("aria-selected",String(i===sugSel)));if(btns[sugSel])btns[sugSel].scrollIntoView({block:"nearest"});};
   $("#absAdd").onclick=()=>{const t=todayYmd();D.ABSENT.push({who:"",line:"p5",kind:"Отпуск",from:t,to:""});markDirty();absQ="";$("#absq").value="";draw(D.ABSENT.length-1);};
   draw();
 }
@@ -683,7 +714,7 @@ const TIPS=[
  ["#bHist","Прошлые сохранения: что в них меняли, и возврат к старой версии."],
  ["#themeBtn","Светлая или тёмная тема. Выбор запоминается на этом компьютере."],
  ['.atabs [data-v="abs"]',"Кто из врачей в отпуске или на больничном. Операторы увидят это во вкладке «Врачи»."],
- ["#absq","Найти врача по фамилии или по заметке."],
+ ["#absq","Начните вводить фамилию: появится список врачей. Выберите врача — добавится строка, останется указать даты. Уже внесённые отпуска тоже отфильтруются."],
  ["#absAdd","Добавить врача, который уходит в отпуск, на больничный, учёбу или отпуск без содержания."],
  [".abs-row .who","Выберите врача из подсказок — так фамилия точно совпадёт с таблицей врачей, и пометка появится у него в строке."],
  [".abs-row .line","Поликлиника, в которой работает врач. Пометку увидят только операторы этой поликлиники."],
@@ -756,7 +787,7 @@ function applyTips(){TIPS.forEach(([sel,t])=>document.querySelectorAll(sel).forE
   const hide=()=>{cur=null;clearTimeout(timer);tip.classList.remove("on");};
   document.addEventListener("mouseover",e=>{const el=e.target.closest("[data-tip]");if(el===cur)return;hide();if(el)timer=setTimeout(()=>show(el),350);});
   document.addEventListener("focusin",e=>{const el=e.target.closest("[data-tip]");hide();if(el&&e.target.matches(":focus-visible"))show(el);});
-  document.addEventListener("focusout",hide);document.addEventListener("scroll",hide,true);document.addEventListener("keydown",e=>{if(e.key==="Escape")hide();});
+  document.addEventListener("focusout",hide);document.addEventListener("scroll",hide,true);document.addEventListener("keydown",hide);document.addEventListener("input",hide);
   new MutationObserver(()=>{clearTimeout(applyTips.t);applyTips.t=setTimeout(applyTips,30);}).observe(document.body,{childList:true,subtree:true});
   applyTips();
 })();
