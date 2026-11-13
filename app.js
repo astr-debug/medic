@@ -250,9 +250,15 @@ $("#gsq").addEventListener("keydown",e=>{
   else if(e.key==="Escape"){ e.preventDefault(); closeSearch(true); $("#gsq").blur(); }
 });
 ["doc","odd","memo"].forEach(t=>$("#tab-"+t).onclick=()=>{state.tab=t;renderPane();});
+$("#helpBtn").onclick=()=>{
+  const list=(typeof HELP!=="undefined"&&HELP)||[];
+  let toc="<p>Содержание</p>"; list.forEach((b,i)=>{ if(b.h!=null) toc+=`<a href="#s${i}">${esc(b.h)}</a>`; });
+  openHelpView({title:"Как пользоваться скриптом", backLabel:"Вернуться к звонку", toc, body:`<h2>Как пользоваться скриптом</h2>`+blocksHtml(list,{h:"h3",ids:true})});
+};
 $("#backBtn").onclick=back;
 $("#newBtn").onclick=newCall;
 document.addEventListener("keydown",e=>{
+  if(window.helpViewOpen&&helpViewOpen()) return;
   if((e.key==="k"||e.key==="K"||e.key==="л"||e.key==="Л")&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); $("#gsq").focus(); $("#gsq").select(); return; }
   if(e.target.closest("input,textarea")) return;
   if(e.key==="/"||e.key==="."&&e.code==="Slash"){ e.preventDefault(); $("#gsq").focus(); return; }

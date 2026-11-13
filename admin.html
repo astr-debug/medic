@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="theme.css">
 <script src="theme.js"></script>
+<script src="helpview.js"></script>
 <style>
 /* Раскладка редактора: вкладки разделов; для шагов — список слева, форма по центру, предпросмотр справа. */
 .top{gap:8px 10px}
@@ -159,7 +160,7 @@ label[data-tip],.lbl[data-tip],legend[data-tip]{cursor:help;text-decoration:unde
   <button type="button" data-v="memo">Памятка</button>
   <button type="button" data-v="help">Руководство операторам</button>
   <button type="button" data-v="abs">Отпуска врачей</button>
-  <a class="btn" href="admin-help.html" target="_blank" rel="noopener" style="margin:6px 0 6px auto;text-decoration:none;align-self:center;color:var(--accent)">Как пользоваться</a>
+  <button type="button" id="bHelp" class="btn" style="margin:6px 0 6px auto;align-self:center;color:var(--accent)">Как пользоваться</button>
   <a class="btn" href="./" target="_blank" rel="noopener" style="margin:6px 0;text-decoration:none;align-self:center;color:var(--accent)">Открыть скрипт</a>
 </nav>
 <div id="banners"></div>
@@ -527,6 +528,14 @@ async function restoreVersion(cm,when){
   }catch(e){box.innerHTML=`<h2>Не получилось</h2><p>${esc(e.message)}</p><div class="acts"><button type="button" class="btn" data-close>Закрыть</button></div>`;box.querySelector("[data-close]").onclick=closeModal;}
 }
 $("#bHist").onclick=openHistory;
+$("#bHelp").onclick=async()=>{
+  try{
+    const html=await (await fetch("admin-help.html?v="+Date.now(),{cache:"no-store"})).text();
+    const doc=new DOMParser().parseFromString(html,"text/html");
+    const toc=doc.querySelector("nav.toc"), art=doc.querySelector("article");
+    openHelpView({title:"Инструкция к редактору", backLabel:"Вернуться в редактор", toc:toc?toc.innerHTML:"", body:art?art.innerHTML:"<p>Не удалось открыть инструкцию.</p>"});
+  }catch(e){banner("Не удалось открыть инструкцию. Проверьте интернет.","err");}
+};
 
 
 
@@ -721,6 +730,7 @@ const TIPS=[
  ["#bCheck","Ищет ошибки: кнопки, которые ведут на несуществующий шаг, шаги без кнопок, шаги, на которые нельзя попасть. Ничего не меняет."],
  ["#bDl","Скачивает весь скрипт одним файлом на этот компьютер — резервная копия. На сайт ничего не отправляет."],
  ["#bHist","Прошлые сохранения: что в них меняли, и возврат к старой версии."],
+ ["#bHelp","Инструкция к редактору. Открывается здесь же; «Вернуться» или Esc — и вы там же, где были."],
  ["#themeBtn","Светлая или тёмная тема. Выбор запоминается на этом компьютере."],
  ['.atabs [data-v="abs"]',"Кто из врачей в отпуске или на больничном. Операторы увидят это во вкладке «Врачи»."],
  ["#absq","Начните вводить фамилию, имя или отчество: появится список врачей. Выберите врача — добавится строка, останется указать даты. Уже внесённые отпуска тоже отфильтруются."],
