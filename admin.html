@@ -638,8 +638,8 @@ const todayYmd=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMo
 function fmtDay(s){return s?s.slice(8,10)+"."+s.slice(5,7)+"."+s.slice(0,4):"?";}
 /* Список врачей для выбора — из таблиц вкладки «Врачи» */
 function doctorNames(line){
-  const re=/[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+\s+[А-ЯЁӘҒҚҢӨҰҮҺІ]\.(?:\s?[А-ЯЁӘҒҚҢӨҰҮҺІ]\.)?/g;const set=new Set();
-  (D.DOCTORS[line]||[]).forEach(b=>{if(!b.table)return;const hd=b.table.head||[];const cols=hd.map((h,i)=>/врач|гинеколог|акушер/i.test(h)?i:-1).filter(i=>i>=0);
+  const re=/[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+(?:\s+[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+){1,2}|[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+\s+[А-ЯЁӘҒҚҢӨҰҮҺІ]\.(?:\s?[А-ЯЁӘҒҚҢӨҰҮҺІ]\.)?/g;const set=new Set();
+  (D.DOCTORS[line]||[]).forEach(b=>{if(!b.table)return;const hd=b.table.head||[];const cols=hd.map((h,i)=>/врач|гинеколог|акушер|фио/i.test(h)?i:-1).filter(i=>i>=0);
     (b.table.rows||[]).forEach(r=>cols.forEach(i=>{(String(r[i]||"").match(re)||[]).forEach(n=>set.add(n.replace(/\s+/g," ")));}));});
   return [...set].sort((a,b)=>a.localeCompare(b,"ru"));
 }
@@ -649,7 +649,7 @@ let absQ="";
 function renderAbs(){
   $("#view").innerHTML=`<div style="padding:16px 20px;max-width:1300px"><div class="panel"><h2>Отпуска врачей</h2>
   <p class="help">Операторы увидят врача во вкладке «Врачи» в блоке «Сейчас нет на работе» и с пометкой в таблице — с первого дня и за 7 дней заранее как «скоро». После даты «по» информация у операторов исчезает сама, а закончившиеся строки удаляются отсюда при следующем сохранении.</p>
-  <div class="abs-top"><div class="sw"><input class="search" id="absq" type="search" autocomplete="off" placeholder="Начните вводить фамилию врача" value="${esc(absQ)}" aria-label="Найти врача"><div class="gsr abs-gsr" id="absSug" role="listbox" hidden></div></div><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
+  <div class="abs-top"><div class="sw"><input class="search" id="absq" type="search" autocomplete="off" placeholder="Фамилия, имя или отчество врача" value="${esc(absQ)}" aria-label="Найти врача"><div class="gsr abs-gsr" id="absSug" role="listbox" hidden></div></div><button type="button" class="btn primary" id="absAdd">+ Добавить отсутствие</button></div>
   <datalist id="dl_p5">${doctorNames("p5").map(n=>`<option value="${esc(n)}">`).join("")}</datalist><datalist id="dl_p6">${doctorNames("p6").map(n=>`<option value="${esc(n)}">`).join("")}</datalist>
   <div id="absList"></div></div></div>`;
   const draw=(focusIdx,field)=>{
@@ -684,8 +684,8 @@ function renderAbs(){
   };
   /* Подсказки врачей при вводе: выбор сразу создаёт строку отсутствия для этого врача */
   const allDocs=[];
-  ["p5","p6"].forEach(l=>{let sec="";(D.DOCTORS[l]||[]).forEach(b=>{if(b.h!=null){sec=b.h;return;}if(!b.table)return;const hd=b.table.head||[];const cols=hd.map((h,i)=>/врач|гинеколог|акушер/i.test(h)?i:-1).filter(i=>i>=0);
-    const re=/[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+\s+[А-ЯЁӘҒҚҢӨҰҮҺІ]\.(?:\s?[А-ЯЁӘҒҚҢӨҰҮҺІ]\.)?/g;
+  ["p5","p6"].forEach(l=>{let sec="";(D.DOCTORS[l]||[]).forEach(b=>{if(b.h!=null){sec=b.h;return;}if(!b.table)return;const hd=b.table.head||[];const cols=hd.map((h,i)=>/врач|гинеколог|акушер|фио/i.test(h)?i:-1).filter(i=>i>=0);
+    const re=/[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+(?:\s+[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+){1,2}|[А-ЯЁӘҒҚҢӨҰҮҺІ][а-яёәғқңөұүһі\-]+\s+[А-ЯЁӘҒҚҢӨҰҮҺІ]\.(?:\s?[А-ЯЁӘҒҚҢӨҰҮҺІ]\.)?/g;
     (b.table.rows||[]).forEach(r=>cols.forEach(i=>(String(r[i]||"").match(re)||[]).forEach(n=>{n=n.replace(/\s+/g," ");if(!allDocs.some(d=>d.name===n&&d.line===l))allDocs.push({name:n,line:l,sec});})));});});
   const nrm=x=>String(x||"").toLowerCase().replace(/ё/g,"е");
   let sugSel=0,sugItems=[];
@@ -693,7 +693,7 @@ function renderAbs(){
   const statusOf=d=>{const r=D.ABSENT.find(x=>x.who===d.name&&x.line===d.line&&absStatus(x)!=="past");if(!r)return "";const st=absStatus(r);return st==="now"?"сейчас нет до "+fmtDay(r.to).slice(0,5):st==="soon"?"с "+fmtDay(r.from).slice(0,5):"";};
   const hlq=(txt,q)=>{const t=esc(txt);if(!q)return t;const re=new RegExp("("+q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/е/g,"[её]")+")","gi");return t.replace(re,"<mark>$1</mark>");};
   const drawSug=()=>{const raw=inp.value.trim();const q=nrm(raw);if(!q){sug.hidden=true;return;}
-    const found=allDocs.filter(d=>nrm(d.name).includes(q)).sort((a,b)=>(nrm(a.name).indexOf(q)-nrm(b.name).indexOf(q))||a.line.localeCompare(b.line)||a.name.localeCompare(b.name,"ru")).slice(0,20);
+    const found=allDocs.filter(d=>nrm(d.name).split(/\s+/).some(w=>w.startsWith(q))||nrm(d.name).includes(q)).sort((a,b)=>(nrm(a.name).indexOf(q)-nrm(b.name).indexOf(q))||a.line.localeCompare(b.line)||a.name.localeCompare(b.name,"ru")).slice(0,20);
     sugSel=0;sugItems=[];let h="";
     ["p5","p6"].forEach(l=>{const g=found.filter(d=>d.line===l);if(!g.length)return;h+=`<p class="gh">Врачи ${l==="p5"?"П5":"П6"}</p>`;
       g.forEach(d=>{const i=sugItems.push(d)-1;const st=statusOf(d);
@@ -723,7 +723,7 @@ const TIPS=[
  ["#bHist","Прошлые сохранения: что в них меняли, и возврат к старой версии."],
  ["#themeBtn","Светлая или тёмная тема. Выбор запоминается на этом компьютере."],
  ['.atabs [data-v="abs"]',"Кто из врачей в отпуске или на больничном. Операторы увидят это во вкладке «Врачи»."],
- ["#absq","Начните вводить фамилию: появится список врачей. Выберите врача — добавится строка, останется указать даты. Уже внесённые отпуска тоже отфильтруются."],
+ ["#absq","Начните вводить фамилию, имя или отчество: появится список врачей. Выберите врача — добавится строка, останется указать даты. Уже внесённые отпуска тоже отфильтруются."],
  ["#absAdd","Добавить врача, который уходит в отпуск, на больничный, учёбу или отпуск без содержания."],
  [".abs-row .who","Выберите врача из подсказок — так фамилия точно совпадёт с таблицей врачей, и пометка появится у него в строке."],
  [".abs-row .line","Поликлиника, в которой работает врач. Пометку увидят только операторы этой поликлиники."],

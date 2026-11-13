@@ -85,7 +85,7 @@ function absFor(line){
     .sort((x,y)=>(y.now-x.now)||x.from.localeCompare(y.from)||x.who.localeCompare(y.who));
 }
 function absPhrase(a){ const w=ABS_WORD[a.kind]||"нет на работе"; return a.now ? `${w} до ${dm(a.to)}` : `с ${dm(a.from)} ${w} (до ${dm(a.to)})`; }
-const surname = who => (who||"").trim().split(/\s+/)[0];
+const surname = who => (who||"").trim().split(/\s+/).slice(0,2).join(" "); /* фамилия + имя: однофамильцы (Искакова А. и Искакова М.) не путаются */
 function absBoxHtml(line){
   const list=absFor(line); if(!list.length) return "";
   const item=a=>`<div class="abs-item ${a.now?"now":"soon"}"><b>${esc(a.who)}</b> — ${esc(absPhrase(a))}${a.note?`<span class="abs-note">${esc(a.note)}</span>`:""}</div>`;
